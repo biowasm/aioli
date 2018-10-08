@@ -27,7 +27,7 @@ class Aioli
         this.resolves = {};
         this.rejects = {};
         this.imports = config.imports;
-        this.assets = ["assets/papaparse.min.js"];
+        this.assets = ["node_modules/papaparse/papaparse.min.js"];
 
         // Validate
         var requiredKeys = ["imports"];

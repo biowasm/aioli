@@ -1,0 +1,15 @@
+{
+  "name": "@robertaboukhalil/aioli",
+  "version": "0.1.0",
+  "description": "A framework for building WebAssembly-based genomics tools",
+  "main": "aioli.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robertaboukhalil/aioli.git"
+  },
+  "author": "Robert Aboukhalil",
+  "license": "MIT",
+  "dependencies": {
+    "papaparse": "^4.6.1"
+  }
+}
