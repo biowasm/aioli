@@ -10,7 +10,7 @@ KB = 1024;
 MB = KB * KB;
 DEBUG = false;
 DIR_DATA = "/data";     // in virtual file system
-DIR_WASM = "../wasm";   // in real file system
+DIR_WASM = "../../../wasm";   // in real file system
 VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
 REGEX_GZIP = /.gz$/g;
 

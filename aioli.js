@@ -8,7 +8,7 @@
 // TODO: check for browser support
 // if (window.File && window.FileReader && window.FileList && window.Blob)
 
-WORKER_DIR = "aioli/aioli.worker.js";
+WORKER_DIR = "node_modules/@robertaboukhalil/aioli/aioli.worker.js";
 DEBUG = false;
 
 class Aioli
@@ -27,7 +27,7 @@ class Aioli
         this.resolves = {};
         this.rejects = {};
         this.imports = config.imports;
-        this.assets = ["node_modules/papaparse/papaparse.min.js"];
+        this.assets = ["../../papaparse/papaparse.min.js"];
 
         // Validate
         var requiredKeys = ["imports"];
