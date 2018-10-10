@@ -9,10 +9,14 @@
 KB = 1024;
 MB = KB * KB;
 DEBUG = false;
-DIR_DATA = "/data";     // in virtual file system
-DIR_WASM = "../../../wasm";   // in real file system
-VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
 REGEX_GZIP = /.gz$/g;
+
+// -----------------------------------------------------------------------------
+// Global variables
+// -----------------------------------------------------------------------------
+
+DIR_DATA = "/data";  // root folder within virtual file system mounted in WebWorker
+VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
 
 // -----------------------------------------------------------------------------
 // State
@@ -20,13 +24,36 @@ REGEX_GZIP = /.gz$/g;
 
 self.state = {
     // File management
-    n: 0,           // file ID
-    files: {},      // key: file ID, value: {id:n, sampling:AioliSampling}
+    n: 0,                       // file ID
+    files: {},                  // key: file ID, value: {id:n, sampling:AioliSampling}
     reader: new FileReader(),
     // Function management
-    output: {},     // key: wasm function
-    running: "",    // wasm function currently running
+    output: {},                 // key: wasm function
+    running: "",                // wasm function currently running
 };
+
+// -----------------------------------------------------------------------------
+// Emscripten module logic
+// -----------------------------------------------------------------------------
+
+// Defaults: don't auto-run WASM program once loaded
+Module = {};
+Module.noInitialRun = true;
+Module.locateFile = url => `${DIR_WASM}/${url}`;
+// // TODO: check effect of setting this
+// Module.TOTAL_STACK = 50 * 1024 * 2014;
+// Module.TOTAL_MEMORY = 160 * 1024 * 2014;
+
+// Capture stdout
+Module.print = text => {
+    if(!(self.state.running in self.state.output))
+        self.state.output[self.state.running] = "";
+    self.state.output[self.state.running] += text + "\n";
+};
+
+Module.printErr = text => {
+    console.warn(text);
+}
 
 
 // =============================================================================
@@ -92,30 +119,6 @@ self.onmessage = function(msg)
 
 
 // =============================================================================
-// Emscripten module logic
-// =============================================================================
-
-// Defaults: don't auto-run WASM program once loaded
-Module = {};
-Module.noInitialRun = true;
-Module.locateFile = url => `${DIR_WASM}/${url}`;
-// // TODO: check effect of setting this
-// Module.TOTAL_STACK = 50 * 1024 * 2014;
-// Module.TOTAL_MEMORY = 160 * 1024 * 2014;
-
-// Capture stdout
-Module.print = text => {
-    if(!(self.state.running in self.state.output))
-        self.state.output[self.state.running] = "";
-    self.state.output[self.state.running] += text + "\n";
-};
-
-Module.printErr = text => {
-    console.warn(text);
-}
-
-
-// =============================================================================
 // Aioli - Worker logic
 // =============================================================================
 
@@ -127,6 +130,7 @@ class AioliWorker
     static init(config)
     {
         DEBUG = config.debug;
+        DIR_WASM = config.dir_wasm;
 
         self.importScripts(
             'aioli.user.js',
@@ -260,16 +264,16 @@ class AioliSampling
 {
     constructor(file)
     {
-        this.file = file;         // File or Blob to sample from
-        this.visited = [];        // List of ranges already visited
-        this.redraws = 0;         // Number of consecutive times we redraw random positions to sample
-        this.stopAtNext = false;  // If true, will sample this time, but stop the next iteration (used for small gzips)
+        this.file = file;              // File or Blob to sample from
+        this.visited = [];             // List of ranges already visited
+        this.redraws = 0;              // Number of consecutive times we redraw random positions to sample
+        this.stopAtNext = false;       // If true, will sample this time, but stop the next iteration (used for small gzips)
 
         // TODO: make these configurable
-        this.maxRedraws = 10;     // Max number of consecutive redraws
-        this.chunkSize = 0.5 * MB;  // Chunk size to read from
+        this.maxRedraws = 10;          // Max number of consecutive redraws
+        this.chunkSize = 0.5 * MB;     // Chunk size to read from
         this.chunkSizeValid = 2 * KB;  // Chunk size to read to determine whether chunk if valid
-        this.smallFileFactor = 5; // Define a small file as N * chunkSize
+        this.smallFileFactor = 5;      // Define a small file as N * chunkSize
     }
 
 

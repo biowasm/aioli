@@ -5,11 +5,14 @@
 // Requires browser support for WebWorkers, WebAssembly, ES6 Classes, and ES6 Promises
 // =============================================================================
 
-// TODO: check for browser support
-// if (window.File && window.FileReader && window.FileList && window.Blob)
+// Check for browser support
+if(!(window.Worker && window.File && window.FileReader && window.WebAssembly))
+    throw "Your browser is not supported";
 
-WORKER_DIR = "node_modules/@robertaboukhalil/aioli/aioli.worker.js";
 DEBUG = false;
+DIR_WASM = "../../../wasm";
+DIR_WORKER = "node_modules/@robertaboukhalil/aioli/aioli.worker.js";
+DIR_PAPAPARSE = "../../papaparse/papaparse.min.js";
 
 class Aioli
 {
@@ -27,7 +30,7 @@ class Aioli
         this.resolves = {};
         this.rejects = {};
         this.imports = config.imports;
-        this.assets = ["../../papaparse/papaparse.min.js"];
+        this.assets = [ DIR_PAPAPARSE ];
 
         // Validate
         var requiredKeys = ["imports"];
@@ -36,7 +39,7 @@ class Aioli
                 Aioli.error(`Missing key <${k}>.`);
 
         // Launch WebWorker and watch for messages (make sure to bind "this")
-        this.worker = new Worker(WORKER_DIR);
+        this.worker = new Worker(DIR_WORKER);
         this.worker.onmessage = this.workerCallback.bind(this);
     }
 
@@ -45,6 +48,7 @@ class Aioli
     {
         return this.workerSend("init", {
             debug: DEBUG,
+            dir_wasm: DIR_WASM,
             imports: this.imports,
             assets: this.assets
         });
@@ -100,10 +104,6 @@ class Aioli
                 Aioli.info(data.id, "-", data.message);
             this.resolves[data.id](data.message);
         }
-
-        // console.log("<worker>");
-        // console.log(event.data);
-        // console.log("</worker>");
     }
 
     // Send message to worker
