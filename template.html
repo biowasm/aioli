@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="App description">
+        <meta name="author" content="Author">
+        <title>AppName</title>
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+
+        <style type="text/css">
+            .bg-inverse { background-color: #2660918f !important; }
+            /* CSS Spinner: https://stephanwagner.me/only-css-loading-spinner */
+            @keyframes spinner{to{transform:rotate(360deg)}}.spinner:before{content:'';box-sizing:border-box;position:absolute;width:20px;height:20px;margin-top:-10px;margin-left:-10px;border-radius:50%;border:2px solid #eee;border-top-color:#2663a8;animation:spinner .8s linear infinite}
+        </style>
+    </head>
+    <body ondrop="dragAndDrop(event)" ondragover="dragAndDrop(event)" ondragend="dragAndDrop(event)">
+        <nav class="navbar navbar-expand-md navbar-dark bg-inverse">
+            <a class="navbar-brand" href=".">AppName</a>
+            <div class="navbar-collapse collapse w-100 order-1 order-md-0 dual-collapse2">
+                <ul class="navbar-nav mr-auto">
+                    <li class="nav-item"></li>
+                </ul>
+            </div>
+            <span class="spinner" style="display:none"></span>
+            <div class="mx-auto order-0">
+                <div style="float:left" class="loadingfile navbar-brand mx-auto">
+                    <a id="btnPause" href="#" class="button btn btn-primary btn-sm" role="button" style="display:none"><span class="fa fa-pause"></span></a>
+                    &nbsp;
+                    <span></span>   
+                </div>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".dual-collapse2">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            <div class="navbar-collapse collapse w-100 order-3 dual-collapse2">
+                <ul class="navbar-nav ml-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" target="_blank" href="#">About</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Container -->
+        <div class="containerMain jumbotron" style="text-align:center; height:100vh">
+            <h2>AppName</h2>
+            <br>
+            <p class="lead">
+                Some description
+            </p>
+            <br>
+            <button id="btnNewFile" class="btn btn-lg btn-primary" role="button">Choose File</button>
+            <input id="upload" type="file" style="display:none">
+            <br><br>
+            <p class="lead" style="color:#999"><a id="btnSample" href="#">Use sample file</a></p>
+        </div>
+        <div class="containerPreview" style="display:none;">
+            <div class="progress" style="height: 10px; border-radius:0">
+                <div class="progress-bar progress-bar-animated progress-bar-striped" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                        results here
+                </div>
+            </div>
+        </div>
+
+        <!-- JavaScript Libraries
+        ======================================================================== -->
+        <!-- Bootstrap / JQuery -->
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+        <!-- Plotly -->
+        <script src="https://cdn.plot.ly/plotly-1.30.0.min.js" integrity="sha384-9I+xvBv+nGk5/ckJh9ZsFmoCRtC7j2KI7hpwfnnObbiWXiTrctb3A2IuweOYt2fw" crossorigin="anonymous"></script>
+        <!-- Aioli -->
+        <script src="node_modules/@robertaboukhalil/aioli/aioli.js"></script>
+        <script>
+        DIR_IMPORTS = [ "app.js" ];
+
+        // =============================================================================
+        // Main class
+        // =============================================================================
+        class App
+        {
+            constructor()
+            {
+                // Internal state
+                this.file = null;
+                this.aioli = null;
+                this.paused = false;
+                this.done = false;
+                this.visited = [];       // array of visited byte ranges
+                this.resamples = 0;      // number of times resampled after couldn't find match
+                this.chunks = 0;
+
+                // Where output is saved
+                this.output = 0;
+            }
+
+            init()
+            {
+                // Create Aioli (and the WebWorker in which WASM code will run)
+                this.aioli = new Aioli({
+                    imports: DIR_IMPORTS
+                });
+
+                // Initialize WASM within WebWorker (returns a promise; not used here)
+                return this.aioli.init();
+            }
+
+            launch(file)
+            {
+                this.file = file;
+
+                // Validate file name
+                var status = this.validate();
+                if(!status.valid) {
+                    alert(status.message);
+                    return false;
+                }
+
+                // Show (empty) plot
+                this.viz();
+
+                // Mount file and start sampling
+                this.aioli.mount({
+                    files: [ this.file ]
+                }).then(() => {
+                    this.process();
+                });
+
+                // Return true => valid FASTQ name
+                return true;
+            }
+
+            // -------------------------------------------------------------------------
+            // Validate FASTQ file name
+            // -------------------------------------------------------------------------
+            validate()
+            {
+                var status = {
+                    valid: false,
+                    message: ""
+                };
+
+                // Make sure File object is valid
+                if(this.file == null || !("name" in this.file))
+                    status.message = "Please choose a valid file";
+                // TODO: add checks on which file extensions are valid
+                // else if(!this.file.name.match(/.fastq/))
+                //     status.message = "Invalid filename <" + this.file.name + ">. \n\nMust end with .fastq";
+                else
+                    status.valid = true;
+
+                return status;
+            }
+
+            // -------------------------------------------------------------------------
+            // Process data
+            // -------------------------------------------------------------------------
+            process()
+            {
+                // Find next chunk to sample.
+                // Note: isValidFastqChunk() is defined in aioli.user.js
+                var getNextChunk = this.aioli.sample(this.file, "isValidFastqChunk");
+                var nextSampling = {};
+                return getNextChunk.then(d =>
+                {
+                    nextSampling = d;
+
+                    // Check if need to stop sampling
+                    if(nextSampling.done || this.paused)
+                    {
+                        if(nextSampling.done) {
+                            this.done = true;
+                            this.paused = true;
+                        }
+                        // One last update
+                        this.viz();
+                        return;
+                    }
+
+                    // Run main() with command-line argument "comp" followed by the File of interest
+                    // Note that this file must have been previously mounted using Aioli.mount()
+                    return this.aioli.exec({
+                        chunk: nextSampling,
+                        args: ["comp", this.file],
+                    });
+                }).then(d => {
+                    if(d == null)
+                        return;
+
+                    // TODO: Parse and save output
+                    this.output += d.data.length;
+
+                    // Visualize and keep processing
+                    this.viz();
+                    this.process();
+                }).catch(e => {
+                    console.error(`Error: ${e}. Skipping...`);
+                });
+            }
+
+            // -------------------------------------------------------------------------
+            // Update visualization
+            // -------------------------------------------------------------------------
+            // TODO: Plot code goes here
+            viz()
+            {
+                this.updateProgress();
+            }
+
+            // Update progress status in UI
+            updateProgress()
+            {
+                // TODO: Show file parsing status
+                $(".loadingfile > span").html(`Processed ${this.output} reads...`);
+
+                // Update UI
+                this.updateProgressUI();
+
+                // Setup play/pause button on click
+                $("#btnPause").off().click(() =>
+                {
+                    // Toggle paused status
+                    this.paused = !this.paused;
+                    // Update button icon
+                    $("#btnPause").html(`<span class="fa fa-${ this.paused ? "play" : "pause" }"></span>`);
+                    // Update UI
+                    this.updateProgressUI();
+
+                    if(!this.paused)
+                        this.process();
+                });
+            }
+            updateProgressUI()
+            {
+                // Show/hide pause button + progress bar
+                $("#btnPause").css("display", this.done ? "none" : "inline");
+                $(".progress").css("display", this.paused ? "none" : "");
+            }
+        }
+
+
+        // =============================================================================
+        // Handlers
+        // =============================================================================
+
+        var app = null,
+            btnUpload = document.querySelector("#btnNewFile"),
+            btnSample = document.querySelector("#btnSample"),
+            inputFile = document.querySelector("#upload");
+
+        // Initialize app with given file
+        function initApp(file)
+        {
+            if(app.launch(file)) {
+                $(".containerMain").hide();
+                $(".containerPreview").show();
+                $(".spinner").hide();
+            }
+        }
+
+        // Initialize app on page load
+        document.addEventListener("DOMContentLoaded", function()
+        {
+            // Setup app
+            app = new App();
+            app.init().then(() => {
+                console.info("Aioli initialized.");
+            });
+
+            // Support URLs
+            var fileURL = new URL(window.location).searchParams.get('url');
+            if(fileURL != null && fileURL != '')
+            {
+                $(".spinner").show();
+                setTimeout(function()
+                {
+                    var request = new XMLHttpRequest();
+                    request.open("GET", fileURL, true);
+                    request.setRequestHeader("Range", "bytes=0-10000000");
+                    request.responseType = "blob";
+                    request.onload = function()
+                    {
+                        console.log("[Aioli] Loaded file of size " + Math.round(request.response.size/1024/1024*100)/100 + "MB.")
+                        // Convert Blob to File
+                        var blob = request.response;
+                        blob.lastModifiedDate = new Date();
+                        // Launch
+                        initApp(new File([blob], fileURL.split("/").reverse()[0]));
+                    };
+                    request.send();
+            
+                }, 150);
+            }
+        });    
+
+        // Event: click use sample file
+        btnSample.addEventListener("click", function(){
+            var url = new URL(window.location);
+            url.searchParams.set("url", "data/dx.fastq");
+            window.location.search = url.search;    
+        });
+
+        // Event: click browse for files
+        btnUpload.addEventListener("click", function(){
+            inputFile.click();
+        });
+
+        // Event: file has been selected
+        inputFile.addEventListener("change", function(){
+            initApp(this.files[0]);
+        });
+
+        // Handle Drag and Drop
+        function dragAndDrop(event)
+        {
+            event.preventDefault();
+            document.querySelector("body").style.border = "0";
+
+            if(event.type == "dragover")
+                document.querySelector("body").style.border = "2px dashed #2663a8";
+            else if(event.type == "drop")
+            {
+                // Check if user dropped a file
+                var f = {};
+                var dataTransfer = event.dataTransfer;
+
+                // Retrieve dropped file
+                if(dataTransfer.items)
+                    if (dataTransfer.items[0].kind == "file")
+                        f = dataTransfer.items[0].getAsFile();
+                else
+                    f = dataTransfer.files[i];
+
+                app.launch(f);
+                return;
+            }
+        }
+        </script>
+    </body>
+</html>
