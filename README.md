@@ -14,8 +14,8 @@ For an example of what can be built with Aioli, see [fastq.bio](https://github.c
 
 ### Compiling into WebAssembly
 1. Download the [Emscriptem SDK](https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html)
-2. Follow the [Emscriptem tutorial](https://kripken.github.io/emscripten-site/docs/getting_started/Tutorial.html) for details on how to compile C/C++ files into `.js` and `.wasm`.
-3. Run `./generate_template.sh app.js app.wasm` to generate a sample HTML/JS template.
+2. Follow the [Emscriptem tutorial](https://kripken.github.io/emscripten-site/docs/getting_started/Tutorial.html) for details on how to compile C/C++ files into `app.js` and `app.wasm`.
+3. Use `template.html` as a starting point for building your app. Built on top of Aioli, this simple app allows users to specify a local file to parse (URLs + drag & drop supported), and will mount that file to a virtual file system inside a WebWorker, sample that file randomly, run a WebAssembly command on each chunk inside the WebWorker, track its output, and display progress throughout.
 
 ## Structure
 ### aioli.js
@@ -29,18 +29,20 @@ this.aioli = new Aioli({
 });
 
 // Initialize Aioli. This will launch the WebWorker and set up a virtual File System
-this.aioli.init().then(() => console.log("Aioli Initialized"));
+this.aioli.init().then(() => {
+    console.log("Aioli Initialized");
 
-// Mount a File object to the virtual file system within the WebWorker
-this.aioli.mount({
-    files: [ myFile ]
-// Once mounted, launch main() function with command-line arguments "comp" and the File object
+    // Mount a File object to the virtual file system within the WebWorker
+    return this.aioli.mount({
+        files: [ myFile ]
+    });
 }).then(() => {
+    // Launch main() function with command-line arguments "comp" and the File object
     return this.aioli.exec({
         args: ["comp", myFile],
     });
-// Once it's done running, retrieve the output
 }).then(d => {
+    // Once it's done running, retrieve the output
     console.log(d);
 });
 ```
