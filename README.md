@@ -16,6 +16,7 @@ For an example of what can be built with Aioli, see [fastq.bio](https://github.c
 1. Download the [Emscriptem SDK](https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html)
 2. Follow the [Emscriptem tutorial](https://kripken.github.io/emscripten-site/docs/getting_started/Tutorial.html) for details on how to compile C/C++ files into `app.js` and `app.wasm`.
 3. Use `template.html` as a starting point for building your app. Built on top of Aioli, this simple app allows users to specify a local file to parse (URLs + drag & drop supported), and will mount that file to a virtual file system inside a WebWorker, sample that file randomly, run a WebAssembly command on each chunk inside the WebWorker, track its output, and display progress throughout.
+4. You can install Aioli as a JavaScript package through npm: `npm install @robertaboukhalil/aioli`.
 
 ## Structure
 ### aioli.js
