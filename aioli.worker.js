@@ -100,6 +100,7 @@ self.onmessage = function(msg)
         AioliWorker.exec(config);
         console.timeEnd("AioliExec");
         self.state.running = "";
+
         // Send back output
         if(self.state.output[id] != null)
             AioliWorker.postMessage(id, Papa.parse(self.state.output[id], {
@@ -276,7 +277,6 @@ class AioliSampling
         this.smallFileFactor = 5;      // Define a small file as N * chunkSize
     }
 
-
     // -------------------------------------------------------------------------
     // Find next region to sample from file
     // -------------------------------------------------------------------------
@@ -370,7 +370,7 @@ class AioliSampling
                 var chunk = self.state.reader.result;
                 var byteOffset = 0;
                 if(typeof(isValidChunk) == "function")
-                    while(!isValidChunk(chunk.slice(byteOffset)))
+                    while(byteOffset < chunkLength && !isValidChunk(chunk.slice(byteOffset)))
                         byteOffset++;
 
                 // Mark current range as visited
