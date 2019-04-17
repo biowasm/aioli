@@ -15,6 +15,7 @@ REGEX_GZIP = /.gz$/g;
 // Global variables
 // -----------------------------------------------------------------------------
 
+DIR_WASM = "";
 DIR_DATA = "/data";  // root folder within virtual file system mounted in WebWorker
 VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
 
