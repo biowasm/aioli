@@ -31,6 +31,8 @@ self.state = {
     // Function management
     output: {},                 // key: wasm function
     running: "",                // wasm function currently running
+    // Initialization
+    init_id: -1                 // message ID for WebAssembly module initialization
 };
 
 // -----------------------------------------------------------------------------
@@ -41,9 +43,12 @@ self.state = {
 Module = {};
 Module.noInitialRun = true;
 Module.locateFile = url => `${DIR_WASM}/${url}`;
-// // TODO: check effect of setting this
-// Module.TOTAL_STACK = 50 * 1024 * 2014;
-// Module.TOTAL_MEMORY = 160 * 1024 * 2014;
+
+// Notify user that module is initialized
+Module.onRuntimeInitialized = () => {
+    AioliWorker.postMessage(self.state.init_id);
+    console.timeEnd("AioliInit");
+};
 
 // Capture stdout
 Module.print = text => {
@@ -54,7 +59,7 @@ Module.print = text => {
 
 Module.printErr = text => {
     console.warn(text);
-}
+};
 
 
 // =============================================================================
@@ -82,8 +87,9 @@ self.onmessage = function(msg)
     {
         console.time("AioliInit");
         AioliWorker.init(config);
-        AioliWorker.postMessage(id);        
-        console.timeEnd("AioliInit");
+        // Save the ID but only message the worker once the module is fully
+        // initialized (see "module.onRuntimeInitialized" above)
+        self.state.init_id = id;
     }
 
     if(action == "mount")
@@ -103,10 +109,15 @@ self.onmessage = function(msg)
         self.state.running = "";
 
         // Send back output
-        if(self.state.output[id] != null)
-            AioliWorker.postMessage(id, Papa.parse(self.state.output[id], {
-                dynamicTyping: true
-            }));
+        var output = self.state.output[id];
+        if(output != null)
+        {
+            if(config.raw)
+                output = output.split("\n");
+            else
+                output = Papa.parse(output, { dynamicTyping: true });
+            AioliWorker.postMessage(id, output);
+        }
     }
 
     if(action == "sample")
@@ -168,11 +179,12 @@ class AioliWorker
         FS.mount(WORKERFS, fs, dir);
 
         // Keep track of mounted files
-        for(var f of filesAndBlobs)
+        for(var f of filesAndBlobs) {
             self.state.files[f.name] = {
                 id: self.state.n,
                 sampling: new AioliSampling(f)
-            }
+            }            
+        }
 
         return getFilePath(f);
     }
