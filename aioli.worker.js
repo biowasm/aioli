@@ -381,7 +381,7 @@ class AioliSampling
             // Increment byte start till we get the correct byteOffset
             self.state.reader.onload = () => {
                 var chunk = self.state.reader.result;
-                var byteOffset = 0;
+                var byteOffset = 0, chunkLength = chunk.length;
                 if(typeof(isValidChunk) == "function")
                     while(byteOffset < chunkLength && !isValidChunk(chunk.slice(byteOffset)))
                         byteOffset++;
