@@ -17,7 +17,7 @@ REGEX_GZIP = /.gz$/g;
 
 DIR_WASM = "";
 DIR_DATA = "/data";  // root folder within virtual file system mounted in WebWorker
-VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
+VALID_ACTIONS = [ "init", "mount", "exec", "sample", "ls" ];
 
 // -----------------------------------------------------------------------------
 // State
@@ -25,11 +25,15 @@ VALID_ACTIONS = [ "init", "mount", "exec", "sample" ];
 
 self.state = {
     // File management
-    n: 0,                       // file ID
-    files: {},                  // key: file ID, value: {id:n, sampling:AioliSampling}
+    files: {},                  // key: file name, value: {data:File|Blob, sampling:AioliSampling}
+    fs: {
+        blobs: [],
+        files: []
+    },
     reader: new FileReader(),
     // Function management
     output: {},                 // key: wasm function
+    error: {},                  // key: wasm function
     running: "",                // wasm function currently running
     // Initialization
     init_id: -1                 // message ID for WebAssembly module initialization
@@ -58,6 +62,10 @@ Module.print = text => {
 };
 
 Module.printErr = text => {
+    if(!(self.state.running in self.state.error))
+        self.state.error[self.state.running] = "";
+    self.state.error[self.state.running] += text + "\n";
+
     console.warn(text);
 };
 
@@ -95,8 +103,8 @@ self.onmessage = function(msg)
     if(action == "mount")
     {
         console.time("AioliMount");
-        AioliWorker.mount(config);
-        AioliWorker.postMessage(id);
+        var path = AioliWorker.mount(config);
+        AioliWorker.postMessage(id, path);
         console.timeEnd("AioliMount");
     }
 
@@ -108,16 +116,27 @@ self.onmessage = function(msg)
         console.timeEnd("AioliExec");
         self.state.running = "";
 
+        // Re-open stdout/stderr (fix error "error closing standard output: -1")
+        FS.streams[1] = FS.open("/dev/stdout", "w");
+        FS.streams[2] = FS.open("/dev/stderr", "w");
+
         // Send back output
-        var output = self.state.output[id];
-        if(output != null)
+        var stdout = self.state.output[id];
+        var stderr = self.state.error[id];
+        if(stdout != null)
         {
             if(config.raw)
-                output = output.split("\n");
+                stdout = stdout.split("\n");
             else
-                output = Papa.parse(output, { dynamicTyping: true });
-            AioliWorker.postMessage(id, output);
+                stdout = Papa.parse(stdout, { dynamicTyping: true });
         }
+        if(stderr != null)
+            stderr = stderr.split("\n");
+
+        AioliWorker.postMessage(id, {
+            stdout: stdout,
+            stderr: stderr
+        });
     }
 
     if(action == "sample")
@@ -127,6 +146,11 @@ self.onmessage = function(msg)
         }).catch(e => {
             console.error(`[AioliWorkerSample]: ${e}`);
         });
+    }
+
+    if(action == "ls")
+    {
+        AioliWorker.postMessage(id, AioliWorker.ls(config));
     }
 }
 
@@ -155,38 +179,43 @@ class AioliWorker
 
     // -------------------------------------------------------------------------
     // Mount file(s) and/or blob(s) to the Worker's file system
-    // Can only mount a folder one at a time, so assign each file a folder
+    // Note: WORKERFS is a ready-only file system ==> need to remount it if add
+    //       files to the folder it's mounted to
     // -------------------------------------------------------------------------
     static mount(config)
     {
-        // Define folder for current batch of files
-        self.state.n++;
-        var dir = `${DIR_DATA}/${self.state.n}`;
-
         // Define file system to mount
-        var fs = {}, filesAndBlobs = [];
+        var dir = `${DIR_DATA}/`,
+            fs = {},
+            filesAndBlobs = [];
         if("files" in config) {
             fs.files = config.files;
             filesAndBlobs = filesAndBlobs.concat(fs.files);
+            self.state.fs.files = self.state.fs.files.concat(fs.files);
         }
         if("blobs" in config) {
             fs.blobs = config.blobs;
-            filesAndBlobs = filesAndBlobs.concat(config.blobs);
+            filesAndBlobs = filesAndBlobs.concat(fs.blobs);
+            self.state.fs.blobs = self.state.fs.blobs.concat(fs.blobs);
         }
 
-        // Create folder and mount
-        FS.mkdir(dir, 0o777);
-        FS.mount(WORKERFS, fs, dir);
-
-        // Keep track of mounted files
+        // Keep track of files
         for(var f of filesAndBlobs) {
             self.state.files[f.name] = {
-                id: self.state.n,
+                // id: self.state.n,
+                path: `${dir}${f.name}`,
                 sampling: new AioliSampling(f)
-            }            
+            }
         }
 
-        return getFilePath(f);
+        // Unmount so we can remount all the files
+        // (can only mount a folder once)
+        try {
+            FS.unmount(dir);
+        } catch(e) {}
+        FS.mount(WORKERFS, self.state.fs, dir);
+
+        return getFileInfo(f).path;
     }
 
     // -------------------------------------------------------------------------
@@ -209,7 +238,7 @@ class AioliWorker
             } else if(typeof(c) == "object" && "name" in c) {
                 // If not sampling chunk, use path as is
                 if(chunk == null)
-                    args[i] = getFilePath(c);
+                    args[i] = getFileInfo(c).path;
                 // Otherwise, first need to mount the chunk
                 else {
                     args[i] = AioliWorker.mount({
@@ -254,6 +283,33 @@ class AioliWorker
 
         // Return promise
         return sampling.nextRegion(fnValidChunk);
+    }
+
+    // -------------------------------------------------------------------------
+    // Get file listing and return array of files
+    // -------------------------------------------------------------------------
+    static ls(configUser = {})
+    {
+        var config = { path: "/", files: true, dirs: true }
+        for(var c in configUser)
+            config[c] = configUser[c];
+
+        var files = FS.readdir(config.path),
+            filesToReturn = [];
+        for(var f of files)
+        {
+            var stats = FS.stat(`${config.path}/${f}`);
+            var fileInfo = {
+                name: f,
+                size: stats.size
+            };
+            var isFile = (f == "." || f == ".." || FS.isDir(`${stats.mode}`)) && config.dirs,
+                isDir = FS.isFile(`${stats.mode}`) && config.files;
+            if(isFile || isDir)
+                filesToReturn.push(fileInfo);
+        }
+
+        return filesToReturn;
     }
 
     // -------------------------------------------------------------------------
@@ -398,12 +454,6 @@ class AioliSampling
 // =============================================================================
 // Utility functions
 // =============================================================================
-
-// Given File object, get its path on the virtual FS
-function getFilePath(file)
-{
-    return `${DIR_DATA}/${getFileInfo(file).id}/${file.name}`;
-}
 
 // Given File object, return info about it
 function getFileInfo(file)

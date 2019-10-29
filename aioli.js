@@ -80,6 +80,12 @@ class Aioli
         });
     }
 
+    // List files in a folder
+    ls(config)
+    {
+        return this.workerSend("ls", config);
+    }
+
 
     // -------------------------------------------------------------------------
     // Worker Communication
