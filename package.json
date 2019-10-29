@@ -1,6 +1,6 @@
 {
   "name": "@robertaboukhalil/aioli",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A framework for building WebAssembly-based genomics tools",
   "main": "aioli.js",
   "repository": {
