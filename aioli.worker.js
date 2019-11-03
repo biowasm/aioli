@@ -16,7 +16,8 @@ REGEX_GZIP = /.gz$/g;
 // -----------------------------------------------------------------------------
 
 DIR_WASM = "";
-DIR_DATA = "/data";  // root folder within virtual file system mounted in WebWorker
+DIR_DATA_FILES = "/data";  // root folder within virtual file system mounted in WebWorker
+DIR_DATA_URLS = "/urls";  // where URLs loaded lazily are stored
 VALID_ACTIONS = [ "init", "mount", "exec", "sample", "ls" ];
 
 // -----------------------------------------------------------------------------
@@ -95,6 +96,7 @@ self.onmessage = function(msg)
     {
         console.time("AioliInit");
         AioliWorker.init(config);
+
         // Save the ID but only message the worker once the module is fully
         // initialized (see "module.onRuntimeInitialized" above)
         self.state.init_id = id;
@@ -174,7 +176,8 @@ class AioliWorker
             ...config.assets,
             ...config.imports.map(Module.locateFile)
         );
-        FS.mkdir(DIR_DATA, 0o777);
+        FS.mkdir(DIR_DATA_FILES, 0o777);
+        FS.mkdir(DIR_DATA_URLS, 0o777);
     }
 
     // -------------------------------------------------------------------------
@@ -185,8 +188,7 @@ class AioliWorker
     static mount(config)
     {
         // Define file system to mount
-        var dir = `${DIR_DATA}/`,
-            fs = {},
+        var fs = {},
             filesAndBlobs = [];
         if("files" in config) {
             fs.files = config.files;
@@ -198,12 +200,26 @@ class AioliWorker
             filesAndBlobs = filesAndBlobs.concat(fs.blobs);
             self.state.fs.blobs = self.state.fs.blobs.concat(fs.blobs);
         }
+        if("urls" in config) {
+            var urlsInfo = config.urls.map(url => {
+                var filename = url.split('/').reverse()[0];
+                FS.createLazyFile(DIR_DATA_URLS, filename, url, true, true);
+                return {
+                    name: filename,
+                    dir: DIR_DATA_URLS,
+                    url: url
+                }
+            });
+            filesAndBlobs = filesAndBlobs.concat(urlsInfo);
+        }
 
         // Keep track of files
         for(var f of filesAndBlobs) {
+            var dir = `${f.dir || DIR_DATA_FILES}`;
             self.state.files[f.name] = {
                 // id: self.state.n,
-                path: `${dir}${f.name}`,
+                dir: dir,
+                path: `${dir}/${f.name}`,
                 sampling: new AioliSampling(f)
             }
         }
@@ -211,11 +227,11 @@ class AioliWorker
         // Unmount so we can remount all the files
         // (can only mount a folder once)
         try {
-            FS.unmount(dir);
+            FS.unmount(DIR_DATA_FILES);
         } catch(e) {}
-        FS.mount(WORKERFS, self.state.fs, dir);
+        FS.mount(WORKERFS, self.state.fs, DIR_DATA_FILES);
 
-        return getFileInfo(f).path;
+        return self.state.files;
     }
 
     // -------------------------------------------------------------------------
