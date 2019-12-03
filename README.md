@@ -4,6 +4,12 @@ Aioli is a framework for building fast genomics web tools by compiling existing 
 
 For an example of what can be built with Aioli, see [fastq.bio](https://github.com/robertaboukhalil/fastq.bio), which was built by compiling [seqtk](https://github.com/lh3/seqtk) to WebAssembly, and yielded significant speedups. fastq.bio uses Aioli to manage the WebAssembly calls and communications between the main thread and the WebWorker.
 
+## Tools that use Aioli
+
+- [fastq.bio](https://github.com/robertaboukhalil/fastq.bio)
+- [bam.bio](https://github.com/robertaboukhalil/bam.bio)
+- [genomeribbon.com](https://github.com/MariaNattestad/Ribbon/tree/wasm-local-only) (work in progress)
+
 ## Getting Started
 
 ### What is WebAssembly?
