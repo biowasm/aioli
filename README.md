@@ -8,7 +8,7 @@ For an example of what can be built with Aioli, see [fastq.bio](https://github.c
 
 - [fastq.bio](https://github.com/robertaboukhalil/fastq.bio)
 - [bam.bio](https://github.com/robertaboukhalil/bam.bio)
-- [genomeribbon.com](https://github.com/MariaNattestad/Ribbon/tree/wasm-local-only) (work in progress)
+- [genomeribbon.com](https://github.com/MariaNattestad/Ribbon)
 
 ## Getting Started
 
