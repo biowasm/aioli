@@ -64,6 +64,27 @@ API = {
     },
 
     // -------------------------------------------------------------------------
+    // Call main function with custom command
+    // -------------------------------------------------------------------------
+    exec: (id, command) => {
+        // Initialize stdout/stderr
+        STDOUT[id] = "";
+        STDERR[id] = "";
+
+        // Call main function with command
+        Module.callMain(command.split(" "));
+
+        // Re-open stdout/stderr (fix error "error closing standard output: -1")
+        FS.streams[1] = FS.open("/dev/stdout", "w");
+        FS.streams[2] = FS.open("/dev/stderr", "w");
+
+        return {
+            stdout: STDOUT[id],
+            stderr: STDERR[id]
+        };
+    },
+
+    // -------------------------------------------------------------------------
     // Mount files
     // -------------------------------------------------------------------------
     mount: (id, file) => {
@@ -89,25 +110,32 @@ API = {
     },
 
     // -------------------------------------------------------------------------
-    // Call main function with custom command
+    // Transfer files from one worker to another. This is useful when one Worker
+    // creates a file on their file system (i.e. a file that is not mounted) and
+    // another Worker needs access to that file.
     // -------------------------------------------------------------------------
-    exec: (id, command) => {
-        // Initialize stdout/stderr
-        STDOUT[id] = "";
-        STDERR[id] = "";
+    transfer: (id, data) => {
+        const role = data.role;
+        const port = data.port;
+        const path = data.path;
 
-        // Call main function with command
-        Module.callMain(command.split(" "));
+        // If this is the WebWorker that is sending the file to the other worker,
+        // first read the file and then *transfer* (not copy!) the ArrayBuffer over
+        if(role == "sender") {
+            const file = FS.readFile(path);
+            port.postMessage(file, [file.buffer]);
+        }
 
-        // Re-open stdout/stderr (fix error "error closing standard output: -1")
-        FS.streams[1] = FS.open("/dev/stdout", "w");
-        FS.streams[2] = FS.open("/dev/stderr", "w");
-
-        return {
-            stdout: STDOUT[id],
-            stderr: STDERR[id]
-        };
-    }
+        // If this is the WebWorker receiving files, write the ArrayBuffer to a file
+        else if(role == "receiver") {
+            port.onmessage = d => {
+                const buffer = d.data;
+                const stream = FS.open(path, "w+");
+                FS.write(stream, buffer, 0, buffer.length, 0);
+                FS.close(stream);
+            }
+        }
+    },
 };
 
 // -------------------------------------------------------------------------

@@ -1,8 +1,16 @@
-//
+// FIXME:
 // worker.js    var REMOTE_PACKAGE_BASE = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.data';
 //              var wasmBinaryFile = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.wasm';
+//
+// aioli.js     can't write to /data file system...
 
 
+
+
+// Notes:
+// - Files mounted after WebWorkers are initialized will be auto-mounted on each Worker
+// - WebAssembly module and WebWorker initialization code downloaded from cdn.sandbox.bio
+// - Mounting URLs uses lazy-loading to fetch information as needed
 
 
 class Aioli
@@ -22,14 +30,13 @@ class Aioli
     static get config() {
         return {
             debug: false,
-            //
+            // Files on virtual file system
             dirFiles: "/data",
             dirURLs: "/urls",
-            //
-            // urlModules: "https://cdn.sandbox.bio",
-            urlModules: "http://localhost:9999/cdn.sandbox.bio/",
-            // urlWorkerJS: "https://cdn.sandbox.bio/aioli.worker.js",
-            urlWorkerJS: "http://localhost:9999/aioli.worker.js",
+            // URLs to code
+            // FIXME:
+            urlModules: "http://localhost:9999/cdn.sandbox.bio/",  // urlModules: "https://cdn.sandbox.bio",
+            urlWorkerJS: "http://localhost:9999/aioli.worker.js",  // urlWorkerJS: "https://cdn.sandbox.bio/aioli.worker.js",
         }
     }
 
@@ -79,10 +86,12 @@ class Aioli
         Aioli.workers = Aioli.workers.concat(this);
 
         // Send a message to the worker so it initializes
-        return this.send("init").then(() => {
-            this.ready = true;
-            return new Promise(resolve => resolve("ready"));
-        });
+        return this
+            .send("init")
+            .then(() => {
+                this.ready = true;
+                return new Promise(resolve => resolve("ready"));
+            });
     }
 
 
@@ -90,7 +99,7 @@ class Aioli
     // Worker Communication
     // =========================================================================
 
-    send(action, data)
+    send(action, data, transferables=[])
     {
         // API: what to do when sending messages
         const id = Aioli.uuid();
@@ -106,7 +115,7 @@ class Aioli
                 id: id,
                 action: action,
                 data: data
-            });
+            }, transferables);
         });
     }
 
@@ -135,16 +144,23 @@ class Aioli
     // =========================================================================
 
     // Call main with custom arguments
-    exec(command) { return this.send("exec", command) }
+    exec(command)
+    {
+        return this.send("exec", command);
+    }
 
     // List files and folders
-    ls(path="/") { return this.send("ls", path) }
+    ls(path="/")
+    {
+        return this.send("ls", path);
+    }
 
 
     // =========================================================================
     // Worker Management: Track workers that Aioli is managing so that e.g. it
     // can be notified when a new file is mounted
     // =========================================================================
+
     static get workers() { return this._workers || []; }
     static set workers(workers) { this._workers = workers; }
 
@@ -155,6 +171,21 @@ class Aioli
 
     static get files() { return this._files || []; }
     static set files(files) { this._files = files; }
+
+    // ------------------------------------------------------------------------
+    // Transfer a mounted file from a worker to another
+    // ------------------------------------------------------------------------
+    static transfer(path, workerFrom, workerTo)
+    {
+        // Create a communication channel the workers can use
+        const channel = new MessageChannel();
+
+        // Ask the workers to transfer a file
+        return Promise.all([
+            workerFrom.send("transfer", { role: "sender", path: path, port: channel.port1 }, [channel.port1]),
+            workerTo.send("transfer", { role: "receiver", path: path, port: channel.port2 }, [channel.port2])
+        ]);
+    }
 
     // ------------------------------------------------------------------------
     // Mount a File, Blob or string URL
@@ -208,14 +239,6 @@ class Aioli
 
         return Promise.all(promises)
                       .then(d => new Promise(resolve => resolve(mountedFile)));
-    }
-
-    // ------------------------------------------------------------------------
-    // Transfer a mounted file from a worker to another
-    // ------------------------------------------------------------------------
-    static transfer(path, workerFrom, workerTo)
-    {
-        // TODO:
     }
 
 

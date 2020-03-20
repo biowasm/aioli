@@ -23,9 +23,7 @@ let samtools = new Aioli("samtools/1.10");
 samtools
     .init()
     .then(() => samtools.exec("--version"))
-    .then(d => {
-        console.log(d.stdout);
-    });
+    .then(d => console.log(d.stdout));
 
 // When a user selects a .sam file from their computer,
 // run `samtools view -q20` on the file
