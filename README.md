@@ -1,6 +1,6 @@
 # Aioli
 
-Aioli is a framework for building fast genomics web tools using [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly).
+Aioli is a framework for building fast genomics web tools using [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) and WebWorkers.
 
 ## Tools that use Aioli
 
