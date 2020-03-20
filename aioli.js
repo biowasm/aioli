@@ -1,147 +1,245 @@
-// =============================================================================
-// Aioli
-// -----------------------------------------------------------------------------
-// This file handles communication between the app and the WebWorker
-// Requires browser support for WebWorkers, WebAssembly, ES6 Classes, and ES6 Promises
-// =============================================================================
+//
+// worker.js    var REMOTE_PACKAGE_BASE = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.data';
+//              var wasmBinaryFile = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.wasm';
 
-// Check for browser support
-if(!(window.Worker && window.File && window.FileReader && window.WebAssembly))
-    throw "Your browser is not supported";
 
-DEBUG = false;
-DIR_WASM = "../../../wasm";
-DIR_WORKER = "node_modules/@robertaboukhalil/aioli/aioli.worker.js";
-DIR_PAPAPARSE = "../../papaparse/papaparse.min.js";
+
 
 class Aioli
 {
-    // -------------------------------------------------------------------------
-    // Constructor
-    // -------------------------------------------------------------------------
+    // Module
+    ready = false;      // Will be true when the module is ready
+    moduleURL = "";     // URL path to module
+    // WebWorker
+    worker = null;      // WebWorker this module communicates with
+    resolves = {};      // Track Promise functions for each message we send to the Worker
+    rejects = {};
 
-    constructor(config)
-    {
-        // IDs for message passing with WebWorker
-        this.n = -1;
-        // Track WebWorker used
-        this.worker = null;
-        // Track promises (indexed by this.n)
-        this.resolves = {};
-        this.rejects = {};
-        this.imports = config.imports;
-        this.assets = [ DIR_PAPAPARSE ];
+    // =========================================================================
+    // Configs and defaults
+    // =========================================================================
 
-        // Validate
-        var requiredKeys = ["imports"];
-        for(var k of requiredKeys)
-            if(!(k in config))
-                Aioli.error(`Missing key <${k}>.`);
-
-        // Launch WebWorker and watch for messages (make sure to bind "this")
-        this.worker = new Worker(DIR_WORKER);
-        this.worker.onmessage = this.workerCallback.bind(this);
+    static get config() {
+        return {
+            debug: false,
+            //
+            dirFiles: "/data",
+            dirURLs: "/urls",
+            //
+            // urlModules: "https://cdn.sandbox.bio",
+            urlModules: "http://localhost:9999/cdn.sandbox.bio/",
+            // urlWorkerJS: "https://cdn.sandbox.bio/aioli.worker.js",
+            urlWorkerJS: "http://localhost:9999/aioli.worker.js",
+        }
     }
 
-    // Initialize WebWorker
-    init()
+    // =========================================================================
+    // Initialization
+    // =========================================================================
+
+    // Create module
+    // e.g. Aioli("samtools/1.10") --> cdn.sandbox.bio/samtools/1.10/worker.{js,wasm}
+    constructor(module)
     {
-        return this.workerSend("init", {
-            debug: DEBUG,
-            dir_wasm: DIR_WASM,
-            imports: this.imports,
-            assets: this.assets
+        // Input validation
+        if(typeof module != "string")
+            throw "Must provide a string to the Aioli constructor";
+
+        // By default, modules are hosted on sandbox.bio
+        if(!module.startsWith("http"))
+            module = `${Aioli.config.urlModules}/${module}`;
+
+        module += "/worker.js";
+        this.moduleURL = module;
+    }
+
+    // Download module code and launch WebWorker
+    async init()
+    {
+        // Load Aioli worker JS
+        const workerResponse = await fetch(Aioli.config.urlWorkerJS);
+        const workerJS = await workerResponse.text();
+
+        // Load compiled .wasm module JS
+        const moduleResponse = await fetch(this.moduleURL);
+        const moduleJS = await moduleResponse.text();
+
+        // Prepend Aioli worker code to the module (one alternative would be to launch an Aioli
+        // WebWorker that imports the module code and eval(), but would rather avoid that)
+        const js = workerJS + "\n" + moduleJS;
+        const blob = new Blob([js], { type: "application/javascript" });
+        this.worker = new Worker(URL.createObjectURL(blob));
+
+        // Worker will make contact when ready
+        // Note: without `.bind(this)`, `this` refers to the Worker object, not the Aioli object
+        this.worker.onmessage = this.receive.bind(this);
+
+        // Keep track of the WebWorkers we've launched overall. This will be useful when
+        // we need to mount a File to all workers using Aioli.mount()
+        Aioli.workers = Aioli.workers.concat(this);
+
+        // Send a message to the worker so it initializes
+        return this.send("init").then(() => {
+            this.ready = true;
+            return new Promise(resolve => resolve("ready"));
         });
     }
 
 
-    // -------------------------------------------------------------------------
-    // Utility functions
-    // -------------------------------------------------------------------------
-
-    // Mount: config = { files:[], blobs:[] }
-    mount(config)
-    {
-        return this.workerSend("mount", config);
-    }
-
-    // Launch WASM code
-    exec(config)
-    {
-        return this.workerSend("exec", config);
-    }
-
-    // Sample from file (isValidChunk returns true if given chunk if valid)
-    sample(file, isValidChunkFnName)
-    {
-        return this.workerSend("sample", {
-            file: file,
-            isValidChunk: isValidChunkFnName
-        });
-    }
-
-    // List files in a folder
-    ls(config)
-    {
-        return this.workerSend("ls", config);
-    }
-
-
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // Worker Communication
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
-    // Callback called whenever get message back from WebWorker
-    workerCallback(event)
+    send(action, data)
     {
-        var data = event.data;
-
-        // Handle errors
-        if(data.action == "error" && this.rejects[this.n] != null)
-        {
-            Aioli.error(data.id, "-", data.message);
-            this.rejects[this.n]();
-        }
-
-        // Handle callback signal
-        else if(data.action == "callback" && this.resolves[data.id] != null)
-        {
-            if(DEBUG)
-                Aioli.info(data.id, "-", data.message);
-            this.resolves[data.id](data.message);
-        }
-    }
-
-    // Send message to worker
-    workerSend(action, config)
-    {
+        // API: what to do when sending messages
+        const id = Aioli.uuid();
         return new Promise((resolve, reject) =>
         {
-            this.n++;
-
             // Track resolve/reject functions so can call them when receive message back from worker
-            this.resolves[this.n] = resolve;
-            this.rejects[this.n] = reject;
+            this.resolves[id] = resolve;
+            this.rejects[id] = reject;
 
             // Send message to worker
+            Aioli.log(`Sending: Action=%c${action}%c; Data=%c${JSON.stringify(data)} %c[id=${id}]`, "color:deepskyblue; font-weight:bold", "", "color:deepskyblue; font-weight:bold");
             this.worker.postMessage({
-                id: this.n,
+                id: id,
                 action: action,
-                config: config
+                data: data
             });
         });
     }
 
+    receive(message)
+    {
+        // Parse message
+        const id = message.data.id;
+        const data = message.data.data;
+        const action = message.data.action;
 
-    // -------------------------------------------------------------------------
-    // Error management
-    // -------------------------------------------------------------------------
+        Aioli.log(`Worker Says: Action=%c${action}%c; Data=%c${JSON.stringify(data)} %c[id=${id}]`, "color:green; font-weight:bold", "", "color:green; font-weight:bold");
+        Aioli.log('================')
 
-    static info() {
-        console.info(`[Aioli]`, ...arguments);
+        // Resolve promise
+        if(action == "callback")
+            this.resolves[id](data);
+        else if(action == "error")
+            this.rejects[id](data);
+        else
+            throw "Invalid action received from worker.";
     }
 
-    static error() {
-        console.error(`[Aioli]`, ...arguments);
+
+    // =========================================================================
+    // Execute commands in the WebWorker
+    // =========================================================================
+
+    // Call main with custom arguments
+    exec(command) { return this.send("exec", command) }
+
+    // List files and folders
+    ls(path="/") { return this.send("ls", path) }
+
+
+    // =========================================================================
+    // Worker Management: Track workers that Aioli is managing so that e.g. it
+    // can be notified when a new file is mounted
+    // =========================================================================
+    static get workers() { return this._workers || []; }
+    static set workers(workers) { this._workers = workers; }
+
+
+    // =========================================================================
+    // File Management
+    // =========================================================================
+
+    static get files() { return this._files || []; }
+    static set files(files) { this._files = files; }
+
+    // ------------------------------------------------------------------------
+    // Mount a File, Blob or string URL
+    // ------------------------------------------------------------------------
+    static mount(file, name=null, directory=null)
+    {
+        let mountedFile = {};
+
+        // Input validation
+        if(directory == Aioli.config.dirFiles || directory == Aioli.config.dirURLs)
+            throw "Can't mount a file to a systeam directory.";
+
+        // Handle File and Blob objects
+        if(file instanceof File || file instanceof Blob)
+        {
+            // Set defaults
+            name = name || file.name;
+            directory = directory || Aioli.config.dirFiles;
+
+            // Create a copy of the File object (not the file contents)
+            // mountedFile = new File([ file ], name);
+            mountedFile.file = file;
+            mountedFile.source = "file";
+        }
+
+        // Handle URLs
+        else if(typeof file == "string" && file.startsWith("http"))
+        {
+            // Set defaults
+            name = name || url.split("").pop();
+            directory = directory || Aioli.config.dirURLs;
+
+            // For URLs, we just use an object, not a File object
+            mountedFile.url = url;
+            mountedFile.source = "url";
+        }
+
+        // Otherwise error out
+        else throw "Only support mounting File, Blob, or string URL";
+
+        // Keep track of this new file
+        mountedFile.name = name;
+        mountedFile.path = `${directory}/${name}`;
+        mountedFile.directory = directory;
+        Aioli.files = Aioli.files.concat(mountedFile);
+
+        // Notify attached workers to mount a new file?
+        let promises = [];
+        for(let worker of Aioli.workers)
+            promises.push(worker.send("mount", mountedFile));
+
+        return Promise.all(promises)
+                      .then(d => new Promise(resolve => resolve(mountedFile)));
+    }
+
+    // ------------------------------------------------------------------------
+    // Transfer a mounted file from a worker to another
+    // ------------------------------------------------------------------------
+    static transfer(path, workerFrom, workerTo)
+    {
+        // TODO:
+    }
+
+
+    // =========================================================================
+    // Utility functions
+    // =========================================================================
+
+    // Output message on console
+    static log(message)
+    {
+        if(!Aioli.debug)
+            return;
+
+        // Get all arguments except `message`
+        let args = [...arguments];
+        args.shift();
+        console.log(`%c[MainThread]%c ${message}`, "font-weight:bold", "", ...args);
+    }
+
+    // UUID v4: https://stackoverflow.com/a/2117523
+    static uuid()
+    {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
     }
 }
