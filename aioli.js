@@ -1,9 +1,3 @@
-// FIXME:
-// worker.js    var REMOTE_PACKAGE_BASE = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.data';
-//              var wasmBinaryFile = 'http://localhost:9999/cdn.sandbox.bio/samtools/1.10/worker.wasm';
-//
-// aioli.js     can't write to /data file system...
-
 // Notes:
 // - Files mounted after WebWorkers are initialized will be auto-mounted on each Worker
 // - WebAssembly module and WebWorker initialization code downloaded from cdn.sandbox.bio
