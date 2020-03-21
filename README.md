@@ -1,8 +1,6 @@
 # Aioli
 
-Aioli is a framework for building fast genomics web tools by compiling existing C/C++ command-line tools into [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) and running them in background threads in the browser using [WebWorkers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
-
-For an example of what can be built with Aioli, see [fastq.bio](https://github.com/robertaboukhalil/fastq.bio), which was built by compiling [seqtk](https://github.com/lh3/seqtk) to WebAssembly, and yielded significant speedups. fastq.bio uses Aioli to manage the WebAssembly calls and communications between the main thread and the WebWorker.
+Aioli is a framework for building fast genomics web tools using [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) and WebWorkers.
 
 ## Tools that use Aioli
 
@@ -11,6 +9,39 @@ For an example of what can be built with Aioli, see [fastq.bio](https://github.c
 - [genomeribbon.com](https://github.com/MariaNattestad/Ribbon)
 
 ## Getting Started
+
+Here is a simple example of Aioli in action running the genomics tool `samtools` on a user-provided file:
+
+```html
+<input id="myfile" type="file" multiple>
+<script src="aioli.js"></script>
+
+<script>
+let samtools = new Aioli("samtools/1.10");
+
+// Initialize samtools and output the version
+samtools
+    .init()
+    .then(() => samtools.exec("--version"))
+    .then(d => console.log(d.stdout));
+
+// When a user selects a .sam file from their computer,
+// run `samtools view -q20` on the file
+function loadFile(event)
+{
+    Aioli
+        // First mount the file
+        .mount(event.target.files[0])
+        // Once it's mounted, run samtools view
+        .then(file => samtools.exec(`view -q20 ${file.path}`))
+        // Capture output
+        .then(d => console.log(d.stdout));
+}
+document.getElementById("myfile").addEventListener("change", loadFile, false);
+</script>
+```
+
+## Background info
 
 ### What is WebAssembly?
 [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) is a very fast, low-level, compiled binary instruction format that runs in all major browsers at near native speeds.
@@ -23,39 +54,3 @@ For an example of what can be built with Aioli, see [fastq.bio](https://github.c
 2. Follow the [Emscriptem tutorial](https://kripken.github.io/emscripten-site/docs/getting_started/Tutorial.html) for details on how to compile C/C++ files into `app.js` and `app.wasm`.
 3. Use `template.html` as a starting point for building your app. Built on top of Aioli, this simple app allows users to specify a local file to parse (URLs + drag & drop supported), and will mount that file to a virtual file system inside a WebWorker, sample that file randomly, run a WebAssembly command on each chunk inside the WebWorker, track its output, and display progress throughout.
 4. You can install Aioli as a JavaScript package through npm: `npm install @robertaboukhalil/aioli`.
-
-## Structure
-### aioli.js
-Main Aioli class
-
-```javascript
-// Example from fastq.bio:
-// Create Aioli object and import the compiled .js file
-this.aioli = new Aioli({
-    imports: [ "seqtk.js" ]
-});
-
-// Initialize Aioli. This will launch the WebWorker and set up a virtual File System
-this.aioli.init().then(() => {
-    console.log("Aioli Initialized");
-
-    // Mount a File object to the virtual file system within the WebWorker
-    return this.aioli.mount({
-        files: [ myFile ]
-    });
-}).then(() => {
-    // Launch main() function with command-line arguments "comp" and the File object
-    return this.aioli.exec({
-        args: ["comp", myFile],
-    });
-}).then(d => {
-    // Once it's done running, retrieve the output
-    console.log(d);
-});
-```
-
-### aioli.user.js
-Custom user functions. Modify this file to allow the WebWorker to call custom functions you wrote (can't directly pass functions from main thread to WebWorker).
-
-### aioli.worker.js
-Code that runs inside a WebWorker. Should not need modifying unless you are adding features.
