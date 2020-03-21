@@ -35,9 +35,7 @@ function loadFile(event)
         // Once it's mounted, run samtools view
         .then(file => samtools.exec(`view -q20 ${file.path}`))
         // Capture output
-        .then(d => {
-            console.log(d.stdout);
-        });
+        .then(d => console.log(d.stdout));
 }
 document.getElementById("myfile").addEventListener("change", loadFile, false);
 </script>

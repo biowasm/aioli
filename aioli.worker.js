@@ -15,7 +15,6 @@ FILES = [];
 DIR_DATA_FILES = "/data";
 DIR_DATA_URLS = "/urls";
 
-
 // Initialization -- two conditions for this worker to be ready:
 //   1) Got UUID from Main Thread that it sent with the "init" message
 //   2) Wasm module is initialized

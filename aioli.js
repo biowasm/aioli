@@ -4,20 +4,16 @@
 //
 // aioli.js     can't write to /data file system...
 
-
-
-
 // Notes:
 // - Files mounted after WebWorkers are initialized will be auto-mounted on each Worker
 // - WebAssembly module and WebWorker initialization code downloaded from cdn.sandbox.bio
 // - Mounting URLs uses lazy-loading to fetch information as needed
 
-
 class Aioli
 {
     // Module
     ready = false;      // Will be true when the module is ready
-    moduleURL = "";     // URL path to module
+    urlModule = "";     // URL path to module
     // WebWorker
     worker = null;      // WebWorker this module communicates with
     resolves = {};      // Track Promise functions for each message we send to the Worker
@@ -34,9 +30,8 @@ class Aioli
             dirFiles: "/data",
             dirURLs: "/urls",
             // URLs to code
-            // FIXME:
-            urlModules: "http://localhost:9999/cdn.sandbox.bio/",  // urlModules: "https://cdn.sandbox.bio",
-            urlWorkerJS: "http://localhost:9999/aioli.worker.js",  // urlWorkerJS: "https://cdn.sandbox.bio/aioli.worker.js",
+            urlModules: "https://cdn.sandbox.bio",
+            urlWorkerJS: "https://cdn.sandbox.bio/aioli/1.0.0/aioli.worker.js",
         }
     }
 
@@ -57,7 +52,7 @@ class Aioli
             module = `${Aioli.config.urlModules}/${module}`;
 
         module += "/worker.js";
-        this.moduleURL = module;
+        this.urlModule = module;
     }
 
     // Download module code and launch WebWorker
@@ -68,7 +63,7 @@ class Aioli
         const workerJS = await workerResponse.text();
 
         // Load compiled .wasm module JS
-        const moduleResponse = await fetch(this.moduleURL);
+        const moduleResponse = await fetch(this.urlModule);
         const moduleJS = await moduleResponse.text();
 
         // Prepend Aioli worker code to the module (one alternative would be to launch an Aioli
