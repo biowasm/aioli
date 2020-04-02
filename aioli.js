@@ -5,13 +5,18 @@
 
 class Aioli
 {
-    // Module
-    ready = false;      // Will be true when the module is ready
-    urlModule = "";     // URL path to module
-    // WebWorker
-    worker = null;      // WebWorker this module communicates with
-    resolves = {};      // Track Promise functions for each message we send to the Worker
-    rejects = {};
+    // =========================================================================
+    // Properties
+    // =========================================================================
+
+    // Module:
+    //  ready = false;      // Will be true when the module is ready
+    //  urlModule = "";     // URL path to module
+
+    // WebWorker:
+    //  worker = null;      // WebWorker this module communicates with
+    //  resolves = {};      // Track Promise functions for each message we send to the Worker
+    //  rejects = {};
 
     // =========================================================================
     // Configs and defaults
@@ -37,6 +42,13 @@ class Aioli
     // e.g. Aioli("samtools/1.10") --> cdn.sandbox.bio/samtools/1.10/worker.{js,wasm}
     constructor(module)
     {
+        // Initialize properties
+        this.ready = false;
+        this.urlModule = "";
+        this.worker = null;
+        this.resolves = {};
+        this.rejects = {};
+
         // Input validation
         if(typeof module != "string")
             throw "Must provide a string to the Aioli constructor";
