@@ -14,7 +14,7 @@ Here is a simple example of Aioli in action running the genomics tool `samtools`
 
 ```html
 <input id="myfile" type="file" multiple>
-<script src="aioli.js"></script>
+<script src="https://cdn.sandbox.bio/aioli/1.1.0/aioli.js"></script>
 
 <script>
 let samtools = new Aioli("samtools/1.10");
