@@ -66,6 +66,12 @@ API = {
         return FS.readFile(path, { encoding: "utf8" });
     },
 
+    download: (id, path) => {
+        let file = FS.readFile(path, { encoding: "utf8" });
+        let blob = new Blob([ file ]);
+        return URL.createObjectURL(blob);
+    },
+
     // -------------------------------------------------------------------------
     // Call main function with custom command
     // -------------------------------------------------------------------------

@@ -159,6 +159,10 @@ class Aioli
     {
         return this.send("cat", path);
     }
+    download(path)
+    {
+        return this.send("download", path);
+    }
 
     // =========================================================================
     // Worker Management: Track workers that Aioli is managing so that e.g. it
