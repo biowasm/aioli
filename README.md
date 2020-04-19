@@ -41,7 +41,7 @@ document.getElementById("myfile").addEventListener("change", loadFile, false);
 </script>
 ```
 
-You can also install Aioli through npm: `npm install @robertaboukhalil/aioli`.
+You can also install Aioli through npm: `npm install @biowasm/aioli`.
 
 
 ## Background info
