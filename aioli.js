@@ -267,3 +267,7 @@ class Aioli
         );
     }
 }
+
+// Export module if applicable
+if(typeof module !== 'undefined' && module.exports)
+    module.exports = { Aioli };
