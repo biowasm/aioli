@@ -150,12 +150,15 @@ class Aioli
         return this.send("exec", command);
     }
 
-    // List files and folders
+    // File system operations
     ls(path="/")
     {
         return this.send("ls", path);
     }
-
+    cat(path)
+    {
+        return this.send("cat", path);
+    }
 
     // =========================================================================
     // Worker Management: Track workers that Aioli is managing so that e.g. it
