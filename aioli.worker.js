@@ -56,10 +56,20 @@ API = {
     },
 
     // -------------------------------------------------------------------------
-    // List files and folders
+    // File system operations
     // -------------------------------------------------------------------------
     ls: (id, path) => {
         return FS.readdir(path);
+    },
+
+    cat: (id, path) => {
+        return FS.readFile(path, { encoding: "utf8" });
+    },
+
+    download: (id, path) => {
+        let file = FS.readFile(path, { encoding: "utf8" });
+        let blob = new Blob([ file ]);
+        return URL.createObjectURL(blob);
     },
 
     // -------------------------------------------------------------------------
