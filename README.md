@@ -9,6 +9,7 @@ Aioli is a framework for building fast genomics web tools using [WebAssembly](ht
 - [fastq.bio](https://github.com/robertaboukhalil/fastq.bio)
 - [bam.bio](https://github.com/robertaboukhalil/bam.bio)
 - [genomeribbon.com](https://github.com/MariaNattestad/Ribbon)
+- [alignment.sandbox.bio](https://github.com/robertaboukhalil/alignment-sandbox)
 
 ## Getting Started
 
