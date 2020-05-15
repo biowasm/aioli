@@ -30,7 +30,7 @@ class Aioli
             dirURLs: "/urls",
             // URLs to code
             urlModules: "https://cdn.sandbox.bio",
-            urlWorkerJS: "https://cdn.sandbox.bio/aioli/1.1.3/aioli.worker.js",
+            urlWorkerJS: "https://cdn.sandbox.bio/aioli/latest/aioli.worker.js",
         }
     }
 
@@ -219,7 +219,7 @@ class Aioli
 
         // Input validation
         if(directory == Aioli.config.dirFiles || directory == Aioli.config.dirURLs)
-            throw "Can't mount a file to a systeam directory.";
+            throw "Can't mount a file to a system directory.";
 
         // Handle File and Blob objects
         if(file instanceof File || file instanceof Blob)
