@@ -75,10 +75,18 @@ API = {
     fs: (id, config) => {
         let fn = config.fn;
         let args = config.args;
-        let response = FS[fn](...args);
-        if(response == null)
-            response = "ok";
-        return response;
+        
+        try {
+            if(!(fn in FS))
+                throw `Invalid function ${fn}. See <https://emscripten.org/docs/api_reference/Filesystem-API.html> for valid functions.`;
+            let response = FS[fn](...args);
+            if(response == null)
+                response = "ok";
+            return response;    
+        } catch(err) {
+            console.error(`[AioliWorker] Failed to run FS.${fn}(): ${err}`);
+            return "error";
+        }
     },
 
     // -------------------------------------------------------------------------
