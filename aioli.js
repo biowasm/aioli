@@ -30,7 +30,7 @@ class Aioli
             dirURLs: "/urls",
             // URLs to code
             urlModules: "https://cdn.sandbox.bio",
-            urlWorkerJS: "https://cdn.sandbox.bio/aioli/1.1.3/aioli.worker.js",
+            urlWorkerJS: "https://cdn.sandbox.bio/aioli/1.2.0/aioli.worker.js",
         }
     }
 
