@@ -222,12 +222,12 @@ class Aioli
         // Handle URLs
         else if(typeof file == "string" && file.startsWith("http"))
         {
-            // Set defaults
-            name = name || url.split("").pop();
+            // Set defaults (if no name provided: "https://website.com/some/path.js" mounts to "/urls/website.com-some-path.js")
+            name = name || file.split("//").pop().replace(/\//g, "-");
             directory = directory || Aioli.config.dirURLs;
 
             // For URLs, we just use an object, not a File object
-            mountedFile.url = url;
+            mountedFile.url = file;
             mountedFile.source = "url";
         }
 
