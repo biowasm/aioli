@@ -84,7 +84,7 @@ API = {
                 response = "ok";
             return response;    
         } catch(err) {
-            console.error(`[AioliWorker] Failed to run FS.${fn}(): ${err}`);
+            console.error(`[AioliWorker] Failed to run FS.${fn}(${args}): ${err}`);
             return "error";
         }
     },
