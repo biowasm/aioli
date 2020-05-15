@@ -72,6 +72,15 @@ API = {
         return URL.createObjectURL(blob);
     },
 
+    fs: (id, config) => {
+        let fn = config.fn;
+        let args = config.args;
+        let response = FS[fn](...args);
+        if(response == null)
+            response = "ok";
+        return response;
+    },
+
     // -------------------------------------------------------------------------
     // Call main function with custom command
     // -------------------------------------------------------------------------

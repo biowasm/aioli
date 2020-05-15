@@ -164,6 +164,21 @@ class Aioli
         return this.send("download", path);
     }
 
+    // Custom file system operations. For example:
+    //   FS.readFile("/file.txt", { encoding: "utf8" });
+    // becomes:
+    //   aioli.fs("readFile", "/file.txt", { encoding: "utf8" })
+    // Supported FS operations: <https://emscripten.org/docs/api_reference/Filesystem-API.html>
+    fs()
+    {
+        // Convert function arguments into array (`arguments` is an object)
+        let args = [...arguments];
+        return this.send("fs", {
+            fn: args.shift(),
+            args: args
+        });
+    }
+
     // =========================================================================
     // Worker Management: Track workers that Aioli is managing so that e.g. it
     // can be notified when a new file is mounted
