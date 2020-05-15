@@ -104,8 +104,13 @@ API = {
             try {
                 FS.unmount(DIR_DATA_FILES);
             } catch(e) {}
-            FILES.push(file.file);
-            FS.mount(WORKERFS, { files: FILES }, DIR_DATA_FILES);
+            FILES.push(file);
+
+            // Handle File and Blob objects
+            FS.mount(WORKERFS, {
+                files: FILES.filter(f => f.file instanceof File).map(f => f.file),
+                blobs: FILES.filter(f => f.file instanceof Blob).map(f => ({ name: f.name, data: f.file }))
+            }, DIR_DATA_FILES);
         }
 
         // Support URLs
