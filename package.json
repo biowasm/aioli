@@ -1,6 +1,6 @@
 {
   "name": "@biowasm/aioli",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "description": "A framework for building WebAssembly-based genomics tools",
   "main": "aioli.js",
   "repository": {
