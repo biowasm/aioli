@@ -15,6 +15,9 @@ FILES = [];
 DIR_DATA_FILES = "/data";
 DIR_DATA_URLS = "/urls";
 
+// Interval timer (used to check on when Asyncify completes)
+TIMER = null;
+
 // Initialization -- two conditions for this worker to be ready:
 //   1) Got UUID from Main Thread that it sent with the "init" message
 //   2) Wasm module is initialized
@@ -100,14 +103,25 @@ API = {
         // Call main function with command
         Module.callMain(command.split(" "));
 
+        // If Asyncify is enabled, don't return immediately; return a Promise instead
+        if(typeof Module.Asyncify === "object" && Module.Asyncify.currData)
+        {
+            return new Promise((resolve, reject) => {
+                // Resolve Promise once Asyncify is done running
+                TIMER = setInterval(() => {
+                    log("Asyncify ping");
+                    if(Module.Asyncify.currData == null) {
+                        clearInterval(TIMER);
+                        resolve(getOutput(id));
+                    }
+                }, 200);
+            });
+        }
+
         // Re-open stdout/stderr (fix error "error closing standard output: -1")
         FS.streams[1] = FS.open("/dev/stdout", "w");
         FS.streams[2] = FS.open("/dev/stderr", "w");
-
-        return {
-            stdout: STDOUT[id],
-            stderr: STDERR[id]
-        };
+        return getOutput(id);
     },
 
     // -------------------------------------------------------------------------
@@ -182,12 +196,16 @@ onmessage = message => {
     // Figure out what to do and return in response
     MSG_UUID = id;
     const response = API[action](id, data);
-    if(response != null)
-        send(id, response);
-    
-    // Clean up stdout/stderr after sending message
-    delete STDOUT[id];
-    delete STDERR[id];
+
+    // If Promise (e.g. because of Asyncify, wait until ready), otherwise return immediately
+    Promise.resolve(response).then(output => {
+        if(output != null)
+            send(id, output)
+
+        // Clean up stdout/stderr after sending message
+        delete STDOUT[id];
+        delete STDERR[id];
+    });
 }
 
 
@@ -214,4 +232,12 @@ function log(message)
     let args = [...arguments];
     args.shift();
     console.warn(`%c[Worker]%c ${message}`, "font-weight:bold", "", ...args);
+}
+
+function getOutput(id)
+{
+    return {
+        stdout: STDOUT[id],
+        stderr: STDERR[id]
+    }
 }
