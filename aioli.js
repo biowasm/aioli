@@ -17,6 +17,7 @@ class Aioli
     //  worker = null;      // WebWorker this module communicates with
     //  resolves = {};      // Track Promise functions for each message we send to the Worker
     //  rejects = {};
+    //  callbacks = {};     // Callbacks can be made to send messages without resolving the Promise
 
     // =========================================================================
     // Configs and defaults
@@ -48,6 +49,7 @@ class Aioli
         this.worker = null;
         this.resolves = {};
         this.rejects = {};
+        this.callbacks = {};
 
         // Input validation
         if(typeof module != "string")
@@ -100,7 +102,7 @@ class Aioli
     // Worker Communication
     // =========================================================================
 
-    send(action, data, transferables=[])
+    send(action, data, callback=null, transferables=[])
     {
         // API: what to do when sending messages
         const id = Aioli.uuid();
@@ -109,6 +111,7 @@ class Aioli
             // Track resolve/reject functions so can call them when receive message back from worker
             this.resolves[id] = resolve;
             this.rejects[id] = reject;
+            this.callbacks[id] = callback;
 
             // Send message to worker
             Aioli.log(`Sending: Action=%c${action}%c; Data=%c${JSON.stringify(data)} %c[id=${id}]`, "color:deepskyblue; font-weight:bold", "", "color:deepskyblue; font-weight:bold");
@@ -131,10 +134,12 @@ class Aioli
         Aioli.log('================')
 
         // Resolve promise
-        if(action == "callback")
+        if(action == "resolve")
             this.resolves[id](data);
-        else if(action == "error")
+        else if(action == "reject")
             this.rejects[id](data);
+        else if(action == "callback" && this.callbacks[id] != null)
+            this.callbacks[id](data);
         else
             throw "Invalid action received from worker.";
     }
@@ -145,9 +150,9 @@ class Aioli
     // =========================================================================
 
     // Call main with custom arguments
-    exec(command)
+    exec(command, callback=null)
     {
-        return this.send("exec", command);
+        return this.send("exec", command, callback);
     }
 
     // File system operations
@@ -205,8 +210,8 @@ class Aioli
 
         // Ask the workers to transfer a file
         return Promise.all([
-            workerFrom.send("transfer", { role: "sender", path: path, port: channel.port1 }, [channel.port1]),
-            workerTo.send("transfer", { role: "receiver", path: path, port: channel.port2 }, [channel.port2])
+            workerFrom.send("transfer", { role: "sender", path: path, port: channel.port1 }, null, [channel.port1]),
+            workerTo.send("transfer", { role: "receiver", path: path, port: channel.port2 }, null, [channel.port2])
         ]);
     }
 

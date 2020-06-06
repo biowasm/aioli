@@ -195,14 +195,14 @@ onmessage = message => {
 // Utility functions
 // =============================================================================
 
-function send(id, response)
+function send(id, response, action="resolve", transferables=[])
 {
-    log(`Sending: Action=%ccallback%c; Data=%c${JSON.stringify(response)}%c [id=${id}]`, "color:deepskyblue; font-weight:bold", "", "color:deepskyblue; font-weight:bold");
+    log(`Sending: Action=%c${action}%c; Data=%c${JSON.stringify(response)}%c [id=${id}]`, "color:deepskyblue; font-weight:bold", "", "color:deepskyblue; font-weight:bold");
     postMessage({
         id: id,
-        action: "callback",
+        action: action,
         data: response
-    });
+    }, transferables);
 }
 
 function log(message)
