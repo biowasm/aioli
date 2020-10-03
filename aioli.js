@@ -16,7 +16,7 @@ class Aioli
     //    program: "smith_waterman",              // optional (defaults to $module)
     //    version: "latest",                      // optional (defaults to latest)
     //    urlModule: "./path/to/wasm/files/",     // optional (defaults to biowasm CDN)
-    //    urlAioli: "./path/to/aioli.worker.js",  // optional (defaults to biowasm CDN
+    //    urlAioli: "./path/to/aioli.worker.js",  // optional (defaults to biowasm CDN)
     //  };
 
     // WebWorker:
