@@ -32,10 +32,7 @@ class Aioli
     // Create module
     constructor(config)
     {
-        // Backwards compatibility with Aioli <= v1.3.0:
-        // Support Aioli("seqtk/<version>") or Aioli("seqtk")
         if(typeof config == "string") {
-            console.warn("Initializing Aioli() with a string is deprecated. Please initialize with an object. See https://github.com/biowasm/aioli for details.");
             const configSplit = config.split("/");
             config = {
                 module: configSplit[0],
