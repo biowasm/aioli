@@ -36,6 +36,21 @@ Module = {
         resolveInitWasm();
     },
 
+    // Load .wasm/.data files from a custom path
+    locateFile: (path, dir) => {
+        var dirRoot = "";
+
+        // Use hardcoded path if `BIOWASM_URL` was defined when creating WebWorker script
+        if(typeof BIOWASM_URL !== 'undefined')
+            dirRoot = BIOWASM_URL;
+        // Or infer it from the path to the JS file
+        else {
+            var dirJS = self.location.href;
+            dirRoot = dirJS.substring(0, dirJS.lastIndexOf("/") + 1);
+        }
+        return dirRoot + path;    
+    },
+
     // Setup print functions to store stdout/stderr based on id
     print: text => STDOUT[MSG_UUID] += `${text}\n`,
     printErr: text => STDERR[MSG_UUID] += `${text}\n`
