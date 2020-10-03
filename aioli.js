@@ -14,6 +14,7 @@ class Aioli
     //  config = {          // Config
     //    module: "seq-align",
     //    program: "smith_waterman",
+    //    version: "latest",                      // optional
     //    urlModule: "./path/to/wasm/files/",     // optional
     //    urlAioli: "./path/to/aioli.worker.js",  // optional
     //  };
