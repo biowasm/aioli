@@ -32,11 +32,16 @@ class Aioli
     // Create module
     constructor(config)
     {
-        if(typeof config == "string") {
+        // Support "<module>/<version>" or "<module>/<program>/<version>" instead of object config
+        if(typeof config == "string")
+        {
             const configSplit = config.split("/");
+            if(configSplit.length < 2 || configSplit.length > 3)
+                throw `Error: Aioli("${config}") is not valid. Expecting "<module>/<version>" or "<module>/<program>/<version>".`;
             config = {
                 module: configSplit[0],
-                version: configSplit[1] || "latest"
+                program: configSplit.length == 3 ? configSplit[1] : configSplit[0],
+                version: configSplit[configSplit.length - 1],
             };
         }
 
