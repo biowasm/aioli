@@ -13,10 +13,10 @@ class Aioli
     //  ready = false;      // Will be true when the module is ready
     //  config = {          // Config
     //    module: "seq-align",
-    //    program: "smith_waterman",
-    //    version: "latest",                      // optional
-    //    urlModule: "./path/to/wasm/files/",     // optional
-    //    urlAioli: "./path/to/aioli.worker.js",  // optional
+    //    program: "smith_waterman",              // optional (defaults to $module)
+    //    version: "latest",                      // optional (defaults to latest)
+    //    urlModule: "./path/to/wasm/files/",     // optional (defaults to biowasm CDN)
+    //    urlAioli: "./path/to/aioli.worker.js",  // optional (defaults to biowasm CDN
     //  };
 
     // WebWorker:
@@ -32,6 +32,17 @@ class Aioli
     // Create module
     constructor(config)
     {
+        // Backwards compatibility with Aioli <= v1.3.0:
+        // Support Aioli("seqtk/<version>") or Aioli("seqtk")
+        if(typeof config == "string") {
+            console.warn("Initializing Aioli() with a string is deprecated. Please initialize with an object. See https://github.com/biowasm/aioli for details.");
+            const configSplit = config.split("/");
+            config = {
+                module: configSplit[0],
+                version: configSplit[1] || "latest"
+            };
+        }
+
         // Make sure config.module is defined
         if(config.module == null)
             throw "Must specify a `module` name";
