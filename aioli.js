@@ -1,6 +1,6 @@
 // Notes:
 // - Files mounted after WebWorkers are initialized will be auto-mounted on each Worker
-// - WebAssembly module and WebWorker initialization code downloaded from cdn.sandbox.bio
+// - WebAssembly module and WebWorker initialization code downloaded from cdn.biowasm.com
 // - Mounting URLs uses lazy-loading to fetch information as needed
 
 class Aioli
@@ -11,7 +11,13 @@ class Aioli
 
     // Module:
     //  ready = false;      // Will be true when the module is ready
-    //  urlModule = "";     // URL path to module
+    //  config = {          // Config
+    //    module: "seq-align",
+    //    program: "smith_waterman",              // optional (defaults to $module)
+    //    version: "latest",                      // optional (defaults to latest)
+    //    urlModule: "./path/to/wasm/files/",     // optional (defaults to biowasm CDN)
+    //    urlAioli: "./path/to/aioli.worker.js",  // optional (defaults to biowasm CDN)
+    //  };
 
     // WebWorker:
     //  worker = null;      // WebWorker this module communicates with
@@ -20,63 +26,68 @@ class Aioli
     //  callbacks = {};     // Callbacks can be made to send messages without resolving the Promise
 
     // =========================================================================
-    // Configs and defaults
-    // =========================================================================
-
-    static get config() {
-        return {
-            debug: false,
-            // Files on virtual file system
-            dirFiles: "/data",
-            dirURLs: "/urls",
-            // URLs to code
-            urlModules: "https://cdn.sandbox.bio",
-            urlWorkerJS: "https://cdn.sandbox.bio/aioli/latest/aioli.worker.js",
-        }
-    }
-
-    // =========================================================================
     // Initialization
     // =========================================================================
 
     // Create module
-    // e.g. Aioli("samtools/1.10") --> cdn.sandbox.bio/samtools/1.10/worker.{js,wasm}
-    constructor(module)
+    constructor(config)
     {
+        // Support "<module>/<version>" or "<module>/<program>/<version>" instead of object config
+        if(typeof config == "string")
+        {
+            const configSplit = config.split("/");
+            if(configSplit.length < 2 || configSplit.length > 3)
+                throw `Error: Aioli("${config}") is not valid. Expecting "<module>/<version>" or "<module>/<program>/<version>".`;
+            config = {
+                module: configSplit[0],
+                program: configSplit.length == 3 ? configSplit[1] : configSplit[0],
+                version: configSplit[configSplit.length - 1],
+            };
+        }
+
+        // Make sure config.module is defined
+        if(config.module == null)
+            throw "Must specify a `module` name";
+
+        // Default settings
+        let defaults = {
+            // In most cases, the program is the same as the module, but other times isn't.
+            // e.g. for module=seq-align, program can be "needleman_wunsch", "smith_waterman", or "lcs"
+            program: config.module,
+
+            // Separate URLs to make it easier to test modifying Aioli while using the CDN for Wasm modules
+            urlModule: `https://cdn.biowasm.com/${config.module}/${config.version || "latest"}`,
+            urlAioli: "https://cdn.biowasm.com/aioli/latest/aioli.worker.js",  // to use a local worker.js, specify "./aioli.worker.js"
+
+            // Paths on the virtual file system
+            // TODO: allow these to be changed without having to modify aioli.worker.js
+            dirFiles: "/data",
+            dirURLs: "/urls",
+        };
+        Aioli.config = Object.assign({}, defaults, config);
+
         // Initialize properties
         this.ready = false;
-        this.urlModule = "";
         this.worker = null;
         this.resolves = {};
         this.rejects = {};
         this.callbacks = {};
-
-        // Input validation
-        if(typeof module != "string")
-            throw "Must provide a string to the Aioli constructor";
-
-        // By default, modules are hosted on sandbox.bio
-        if(!module.startsWith("http"))
-            module = `${Aioli.config.urlModules}/${module}`;
-
-        module += "/worker.js";
-        this.urlModule = module;
     }
 
     // Download module code and launch WebWorker
     async init()
     {
         // Load Aioli worker JS
-        const workerResponse = await fetch(Aioli.config.urlWorkerJS);
+        const workerResponse = await fetch(Aioli.config.urlAioli);
         const workerJS = await workerResponse.text();
 
         // Load compiled .wasm module JS
-        const moduleResponse = await fetch(this.urlModule);
+        const moduleResponse = await fetch(`${Aioli.config.urlModule}/${Aioli.config.program}.js`);
         const moduleJS = await moduleResponse.text();
 
         // Prepend Aioli worker code to the module (one alternative would be to launch an Aioli
         // WebWorker that imports the module code and eval(), but would rather avoid that)
-        const js = workerJS + "\n" + moduleJS;
+        const js = `BIOWASM_URL = "${Aioli.config.urlModule}/";\n${workerJS}\n${moduleJS}`;
         const blob = new Blob([js], { type: "application/javascript" });
         this.worker = new Worker(URL.createObjectURL(blob));
 
