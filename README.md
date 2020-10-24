@@ -26,15 +26,14 @@ Here's Aioli in action running the genomics tool `samtools` on a small `SAM` fil
 <script>
 let samtools = new Aioli("samtools/1.10");
 
+document.write("Loading...");
 samtools
+    // Initialize samtools
     .init()
-    .then(() => {
-        console.log("samtools is initialized");
-
-        // Run samtools view command
-        samtools.exec("view -q 20 /samtools/examples/toy.sam")
-                .then(d => console.log(d.stdout));
-    });
+    // Run "samtools view" command with "-q 20" filter
+    .then(d => samtools.exec("view -q 20 /samtools/examples/toy.sam"))
+    // Output result
+    .then(d => document.write(`<pre>${d.stdout}</pre>`));
 </script>
 ```
 
