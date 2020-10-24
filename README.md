@@ -31,7 +31,7 @@ samtools
     // Initialize samtools
     .init()
     // Run "samtools view" command with "-q 20" filter
-    .then(d => samtools.exec("view -q 20 /samtools/examples/toy.sam"))
+    .then(() => samtools.exec("view -q 20 /samtools/examples/toy.sam"))
     // Output result
     .then(d => document.write(`<pre>${d.stdout}</pre>`));
 </script>
@@ -62,7 +62,7 @@ function loadFile(event)
         // First mount the file
         .mount(event.target.files[0])
         // Once it's mounted, run samtools view
-        .then(file => samtools.exec(`view -q20 ${file.path}`))
+        .then(f => samtools.exec(`view -q20 ${f.path}`))
         // Capture output
         .then(d => console.log(d.stdout));
 }
