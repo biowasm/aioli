@@ -2,22 +2,24 @@
 
 [![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli)
 
-Aioli is a framework for building fast genomics web tools using [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) and [WebWorkers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
+Aioli is a framework for building fast genomics web applications using [WebAssembly](https://developer.mozilla.org/en-US/docs/WebAssembly) and [WebWorkers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API).
 
-## Tools that use Aioli
+## Tools using Aioli
 
-- [fastq.bio](https://github.com/robertaboukhalil/fastq.bio)
-- [bam.bio](https://github.com/robertaboukhalil/bam.bio)
-- [genomeribbon.com](https://github.com/MariaNattestad/Ribbon)
-- [alignment.sandbox.bio](https://github.com/robertaboukhalil/alignment-sandbox)
+| Tool | URL | Repo |
+|-|-|-|
+| Ribbon | [genomeribbon.com](https://genomeribbon.com) | [MariaNattestad/Ribbon](https://github.com/MariaNattestad/Ribbon) |
+| Alignment Sandbox | [alignment.sandbox.bio](https://alignment.sandbox.bio/) | [RobertAboukhalil/alignment-sandbox](https://github.com/robertaboukhalil/alignment-sandbox) |
+| fastq.bio | [fastq.bio](http://www.fastq.bio/) | [RobertAboukhalil/fastq.bio](https://github.com/robertaboukhalil/fastq.bio) |
+| bam.bio | [bam.bio](http://www.bam.bio/) | [RobertAboukhalil/bam.bio](https://github.com/robertaboukhalil/bam.bio) |
 
 ## Getting Started
 
-As shown below, **you can obtain Aioli from our biowasm CDN**, or you can install it from npm: `npm install @biowasm/aioli` (use the npm option if you want to host Aioli module locally).
+As shown below, **you can obtain Aioli from our biowasm CDN**, or you can install it from npm: `npm install @biowasm/aioli` (use the `npm` option if you need to host the Aioli module locally).
 
 ### A simple example
 
-Here is a simple example of Aioli in action running the genomics tool `samtools` on a small `SAM` file:
+Here's Aioli in action running the genomics tool `samtools` on a small `SAM` file:
 
 ```html
 <script src="https://cdn.biowasm.com/aioli/latest/aioli.js"></script>
@@ -38,10 +40,12 @@ samtools
 
 ### Working with user files
 
+We can update the previous example to run `samtools` on a file provided by the user:
+
 ```html
 <input id="myfile" type="file" multiple>
-<script src="https://cdn.biowasm.com/aioli/latest/aioli.js"></script>
 
+<script src="https://cdn.biowasm.com/aioli/latest/aioli.js"></script>
 <script>
 let samtools = new Aioli("samtools/1.10");
 
@@ -91,8 +95,9 @@ new Aioli("seqtk/latest");
 // For most bioinformatics tools, <module> == <program>
 new Aioli("seqtk/seqtk/1.2");
 
-// But not always! Some bioinformatics tools have multiple tools
+// But not always! Some tools have multiple sub-tools
 new Aioli("seq-align/smith_waterman/1.2");
+new Aioli("seq-align/needleman_wunsch/1.2");
 ```
 
 ### Advanced
