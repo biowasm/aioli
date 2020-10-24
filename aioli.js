@@ -56,11 +56,11 @@ class Aioli
             program: config.module,
 
             // Separate URLs to make it easier to test modifying Aioli while using the CDN for Wasm modules
-            urlModule: `https://cdn-stg.biowasm.com/${config.module}/${config.version || "latest"}`,
-            urlAioli: "https://cdn-stg.biowasm.com/aioli/latest/aioli.worker.js",  // locally: ./aioli.worker.js
+            urlModule: `https://cdn.biowasm.com/${config.module}/${config.version || "latest"}`,
+            urlAioli: "https://cdn.biowasm.com/aioli/latest/aioli.worker.js",  // to use a local worker.js, specify "./aioli.worker.js"
 
             // Paths on the virtual file system
-            // TODO: allow these to be changes without having to modify aioli.worker.js
+            // TODO: allow these to be changed without having to modify aioli.worker.js
             dirFiles: "/data",
             dirURLs: "/urls",
         };
