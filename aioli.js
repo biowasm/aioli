@@ -58,13 +58,8 @@ class Aioli
             // Separate URLs to make it easier to test modifying Aioli while using the CDN for Wasm modules
             urlModule: `https://cdn.biowasm.com/${config.module}/${config.version || "latest"}`,
             urlAioli: "https://cdn.biowasm.com/aioli/latest/aioli.worker.js",  // to use a local worker.js, specify "./aioli.worker.js"
-
-            // Paths on the virtual file system
-            // TODO: allow these to be changed without having to modify aioli.worker.js
-            dirFiles: "/data",
-            dirURLs: "/urls",
         };
-        Aioli.config = Object.assign({}, defaults, config);
+        this.config = Object.assign({}, defaults, config);
 
         // Initialize properties
         this.ready = false;
@@ -72,22 +67,27 @@ class Aioli
         this.resolves = {};
         this.rejects = {};
         this.callbacks = {};
+
+        // Paths on the virtual file system (class properties because needed by static mount() function)
+        // TODO: allow these to be changed without having to modify aioli.worker.js
+        Aioli.dirFiles = "/data";
+        Aioli.dirURLs = "/urls";
     }
 
     // Download module code and launch WebWorker
     async init()
     {
         // Load Aioli worker JS
-        const workerResponse = await fetch(Aioli.config.urlAioli);
+        const workerResponse = await fetch(this.config.urlAioli);
         const workerJS = await workerResponse.text();
 
         // Load compiled .wasm module JS
-        const moduleResponse = await fetch(`${Aioli.config.urlModule}/${Aioli.config.program}.js`);
+        const moduleResponse = await fetch(`${this.config.urlModule}/${this.config.program}.js`);
         const moduleJS = await moduleResponse.text();
 
         // Prepend Aioli worker code to the module (one alternative would be to launch an Aioli
         // WebWorker that imports the module code and eval(), but would rather avoid that)
-        const js = `BIOWASM_URL = "${Aioli.config.urlModule}/";\n${workerJS}\n${moduleJS}`;
+        const js = `BIOWASM_URL = "${this.config.urlModule}/";\n${workerJS}\n${moduleJS}`;
         const blob = new Blob([js], { type: "application/javascript" });
         this.worker = new Worker(URL.createObjectURL(blob));
 
@@ -234,7 +234,7 @@ class Aioli
         let mountedFile = {};
 
         // Input validation
-        if(directory == Aioli.config.dirFiles || directory == Aioli.config.dirURLs)
+        if(directory == Aioli.dirFiles || directory == Aioli.dirURLs)
             throw "Can't mount a file to a system directory.";
 
         // Handle File and Blob objects
@@ -242,7 +242,7 @@ class Aioli
         {
             // Set defaults
             name = name || file.name;
-            directory = directory || Aioli.config.dirFiles;
+            directory = directory || Aioli.dirFiles;
 
             // Create a copy of the File object (not the file contents)
             // mountedFile = new File([ file ], name);
@@ -255,7 +255,7 @@ class Aioli
         {
             // Set defaults (if no name provided: "https://website.com/some/path.js" mounts to "/urls/website.com-some-path.js")
             name = name || file.split("//").pop().replace(/\//g, "-");
-            directory = directory || Aioli.config.dirURLs;
+            directory = directory || Aioli.dirURLs;
 
             // For URLs, we just use an object, not a File object
             mountedFile.url = file;
