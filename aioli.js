@@ -81,6 +81,14 @@ class Aioli
         const workerResponse = await fetch(this.config.urlAioli);
         const workerJS = await workerResponse.text();
 
+        // Feature detection using the module's config.json file
+        try {
+            const workerConfig = await fetch(`${this.config.urlModule}/config.json`).then(d => d.json());
+            // Check for SIMD support (source: <https://github.com/GoogleChromeLabs/wasm-feature-detect>)
+            if(workerConfig["wasm-features"].includes("simd") && !WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])))
+                this.config.program += "-nosimd";
+        } catch (error) { }
+
         // Load compiled .wasm module JS
         const moduleResponse = await fetch(`${this.config.urlModule}/${this.config.program}.js`);
         const moduleJS = await moduleResponse.text();
