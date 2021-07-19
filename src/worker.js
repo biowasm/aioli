@@ -48,11 +48,20 @@ const aioli = {
 			// All biowasm modules export the variable "Module" so assign it
 			self.importScripts(`${tool.urlPrefix}/${tool.program}.js`);
 			tool.module = await Module({
-				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`
+				// Used by Emscripten to find path to .wasm / .data files
+				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
+
+				// Setup print functions to store stdout/stderr output
+				print: text => tool.stdout += `${text}\n`,
+				printErr: text => tool.stderr += `${text}\n`
 			});
+
+			// Initialize some variables
+			tool.stdout = "";
+			tool.stderr = "";
+			aioli[tool.program] = tool;
 		}
 
-		console.log(aioli.tools);
 		console.log(aioli.tools[0].module.FS.readdir("/"));
 		// console.log(aioli.config)
 		// console.log(`aioli v${pkg.version}`)
