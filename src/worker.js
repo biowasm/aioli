@@ -1,4 +1,5 @@
 import * as Comlink from "comlink";
+import { simd, threads } from "wasm-feature-detect";
 
 const aioli = {
 	// Configuration
@@ -16,6 +17,10 @@ const aioli = {
 			// -----------------------------------------------------------------
 			// Set default settings
 			// -----------------------------------------------------------------
+			// By default, use the CDN path, but also accept custom paths for each tool
+			if(!tool.urlPrefix)
+				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.module}/${tool.version}`;
+
 			// Unless specified, we want to use the latest version of a tool
 			if(!tool.version)
 				tool.version = "latest";
@@ -25,9 +30,17 @@ const aioli = {
 			if(!tool.program)
 				tool.program = tool.module;
 
-			// By default, use the CDN path, but also accept custom paths for each tool
-			if(!tool.urlPrefix)
-				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.module}/${tool.version}`;
+			// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
+			// load the right version of the .wasm binaries based on what is supported by the user's browser.
+			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
+			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
+				console.warn(`[Aioli] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
+				tool.program += "-nosimd";
+			}
+			if(toolConfig["wasm-features"]?.includes("threads") && !await threads()) {
+				console.warn(`[Aioli] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
+				tool.program += "-nothreads";
+			}
 
 			// -----------------------------------------------------------------
 			// Import the WebAssembly module

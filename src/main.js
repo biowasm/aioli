@@ -1,6 +1,5 @@
 import pkg from "../package.json";
 import * as Comlink from "comlink";
-import { simd, threads } from "wasm-feature-detect";
 
 // Constants
 const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";
