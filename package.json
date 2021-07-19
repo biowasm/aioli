@@ -1,12 +1,33 @@
 {
   "name": "@biowasm/aioli",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "description": "A framework for building WebAssembly-based genomics tools",
+  "browser": "dist/aioli.js",
+  "worker": "dist/aioli.worker.js",
   "main": "aioli.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/biowasm/aioli.git"
   },
   "author": "Robert Aboukhalil",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "comlink": "^4.3.1",
+    "wasm-feature-detect": "^1.2.11"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^11.0.1",
+    "@rollup/plugin-node-resolve": "^7.0.0",
+    "rollup": "^1.29.0",
+    "rollup-plugin-terser": "^7.0.2"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "test": "node test/test.js",
+    "pretest": "npm run build"
+  },
+  "files": [
+    "dist"
+  ]
 }
