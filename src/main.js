@@ -4,15 +4,20 @@ import { simd, threads } from "wasm-feature-detect";
 
 // Constants
 const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";
-const configDefault = {
-	urlRoot: URL_CDN_ROOT,
-	urlAioli: `${URL_CDN_ROOT}/aioli/${pkg.version}.aioli.worker.js`
-}
+const CONFIG_DEFAULTS = {
+	// Biowasm CDN URLs
+	urlCDN: URL_CDN_ROOT,
+	// Get the Worker code corresponding to the current Aioli version
+	urlAioli: `${URL_CDN_ROOT}/aioli/${pkg.version}/aioli.worker.js`,
+	// Various folder paths use in the virtual file system
+	dirData: "/data",
+	dirDataReadOnly: "/data-readonly"
+};
 
 // Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one
 export default class Aioli
 {
-	constructor(tools, config=configDefault)
+	constructor(tools, config={})
 	{
 		// Input validation
 		if(tools == null)
@@ -20,13 +25,16 @@ export default class Aioli
 		if(!Array.isArray(tools))
 			tools = [ tools ];
 
+		// Overwrite default config if specified
+		config = Object.assign({}, CONFIG_DEFAULTS, config);
+
 		// Create the WebWorker
-		const worker = new Worker("./dist/aioli.worker.js");
+		const worker = new Worker(config.urlAioli);
 		const aioli = Comlink.wrap(worker);
 
 		// Update configuration
 		aioli.tools = tools;
-		Object.assign(aioli.config, config);
+		aioli.config = config;
 
 		return aioli;
 	}
