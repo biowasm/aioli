@@ -150,8 +150,9 @@ const aioli = {
 		}
 
 		// Unmount and remount Files and Blobs since WORKERFS is read-only (i.e. can only mount a folder once)
-		if(aioli.fs.isDir(dirMounted))
+		try {
 			aioli.fs.unmount(dirMounted);
+		} catch(e) {}
 
 		// Mount File & Blob objects
 		aioli.files = aioli.files.concat(toMountFiles);
@@ -162,6 +163,9 @@ const aioli = {
 
 		// Create symlinks for convenience
 		toSymlink.map(d => {
+			try {
+				aioli.fs.unlink(d.newpath);
+			} catch(e) {}
 			aioli.fs.symlink(d.oldpath, d.newpath);
 		})
 
