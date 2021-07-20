@@ -8,6 +8,8 @@ const CONFIG_DEFAULTS = {
 	urlCDN: URL_CDN_ROOT,
 	// Get the Worker code corresponding to the current Aioli version
 	urlAioli: `${URL_CDN_ROOT}/aioli/${pkg.version}/aioli.worker.js`,
+	// Where we can find the base biowasm module (only modify this for local development)
+	urlBaseModule: null,
 
 	// Folder to use for mounting the shared filesystem
 	dirShared: "/shared",
@@ -32,6 +34,13 @@ export default class Aioli
 
 		// Overwrite default config if specified
 		config = Object.assign({}, CONFIG_DEFAULTS, config);
+
+		// Add base module to list of tools to initialize
+		tools = [{
+			module: "base",
+			version: pkg.version,
+			urlPrefix: config.urlBaseModule
+		}, ...tools];
 
 		// Create the WebWorker
 		const worker = new Worker(config.urlAioli);
