@@ -59,6 +59,9 @@ const aioli = {
 			// All biowasm modules export the variable "Module" so assign it
 			self.importScripts(`${tool.urlPrefix}/${tool.program}.js`);
 			tool.module = await Module({
+				// By default, tool name is hardcoded as "./this.program"
+				thisProgram: tool.program,
+
 				// Used by Emscripten to find path to .wasm / .data files
 				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
 
