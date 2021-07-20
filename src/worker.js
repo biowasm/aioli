@@ -192,7 +192,6 @@ const aioli = {
 		// Run command. Stdout/Stderr will be saved to "tool.stdout"/"tool.stderr" (see "print" and "printErr" above)
 		tool.module.callMain(args);
 
-		// TODO:
 		// Re-open stdout/stderr (fix error "error closing standard output: -1")
 		tool.module.FS.streams[1] = tool.module.FS.open("/dev/stdout", "w");
 		tool.module.FS.streams[2] = tool.module.FS.open("/dev/stderr", "w");
@@ -201,9 +200,7 @@ const aioli = {
 			stdout: tool.stdout,
 			stderr: tool.stderr
 		}
-	},
-	//
-	// TODO: ls, cat, download
+	}
 };
 
 Comlink.expose(aioli);
