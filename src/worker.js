@@ -168,9 +168,10 @@ const aioli = {
 		// Create symlinks for convenience
 		toSymlink.map(d => {
 			try {
-				aioli.fs.unlink(d.newpath);
+				aioli.tools[1].module.FS.unlink(`/shared${d.newpath}`)
 			} catch(e) {}
-			aioli.fs.symlink(d.oldpath, d.newpath);
+			aioli.log(`Create symlink: /shared${d.newpath} --> /shared${d.oldpath}`)
+			aioli.tools[1].module.FS.symlink(`/shared${d.oldpath}`, `/shared${d.newpath}`);
 		})
 
 		return mountPaths;
