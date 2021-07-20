@@ -19,6 +19,9 @@ const CONFIG_DEFAULTS = {
 	// so that operations like "samtools index" don't crash due to the read-only nature of WORKERS).
 	// Also mount URLs lazily in that folder.
 	dirData: "/data",
+
+	// Toggle debug console messages
+	debug: true
 };
 
 // Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one
