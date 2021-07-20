@@ -10,6 +10,13 @@ const aioli = {
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
+	// Supports array of tool info, where each tool is represented by:
+	// 		{
+	// 			module: "seq-align",
+	//			program: "smith_waterman",                    // Optional, default="module" name. Only use this for tools with multiple subtools
+	// 			version: "latest",                            // Optional, default="latest"
+	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local Aioli development
+	// 		},
 	// =========================================================================
 	async init()
 	{
