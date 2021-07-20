@@ -3,9 +3,10 @@ import { simd, threads } from "wasm-feature-detect";
 
 const aioli = {
 	// Configuration
-	tools: [],
-	config: {},  // see main.js for defaults
-	files: [],
+	tools: [],   // Genomics tools that are available to use in this WebWorker
+	config: {},  // See main.js for defaults
+	files: [],   // File objects that represent local user files we mount to a virtual filesystem
+	blobs: [],   // Blob objects mounted to a virtual filesystem. Format: { name: "blob.txt", data: <Blob> }
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -13,8 +14,10 @@ const aioli = {
 	async init()
 	{
 		// Load each tool
-		for(let tool of aioli.tools)
+		for(let i in aioli.tools)
 		{
+			const tool = aioli.tools[i];
+
 			// -----------------------------------------------------------------
 			// Set default settings
 			// -----------------------------------------------------------------
@@ -80,9 +83,6 @@ const aioli = {
 			}
 		}
 
-		// console.log(aioli.tools[0].module.FS.readdir("/"));
-		// console.log(aioli.config)
-		// console.log(`aioli v${pkg.version}`)
 		return true;
 	},
 
