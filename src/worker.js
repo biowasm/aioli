@@ -4,7 +4,8 @@ import { simd, threads } from "wasm-feature-detect";
 const aioli = {
 	// Configuration
 	tools: [],
-	config: {},
+	config: {},  // see main.js for defaults
+	files: [],
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -59,12 +60,30 @@ const aioli = {
 			// Initialize variables
 			tool.stdout = "";
 			tool.stderr = "";
+
+			// -----------------------------------------------------------------
+			// Setup shared virtual file system
+			// -----------------------------------------------------------------
+
+			// The first tool we initialize has the main filesystem, which other tools will mount
+			if(i != 0)
+			{
+				const FS = tool.module.FS;
+				FS.mkdir(aioli.config.dirShared);
+				FS.mount(tool.module.PROXYFS, {
+					root: "/",
+					fs: aioli.tools[0].module.FS  // mount the first tool's filesystem
+				}, aioli.config.dirShared);
+
+				// Set the working directory to be that mount folder for convenience
+				FS.chdir(aioli.config.dirShared);
+			}
 		}
 
 		// console.log(aioli.tools[0].module.FS.readdir("/"));
 		// console.log(aioli.config)
 		// console.log(`aioli v${pkg.version}`)
-		return 345;
+		return true;
 	},
 
 	// =========================================================================
