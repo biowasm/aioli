@@ -156,6 +156,12 @@ const aioli = {
 			blobs: aioli.files.filter(f => f?.data instanceof Blob)
 		}, dirMounted);
 
+
+		// Create symlinks for convenience
+		toSymlink.map(d => {
+			FS.symlink(d.oldpath, d.newpath);
+		})
+
 		return mountPaths;
 	},
 
