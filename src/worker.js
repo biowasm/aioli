@@ -41,7 +41,7 @@ const aioli = {
 			if(!tool.program)
 				tool.program = tool.module;
 
-			aioli.log(`Loading ${tool.program} version=${tool.version}`);
+			aioli._log(`Loading ${tool.program} version=${tool.version}`);
 
 			// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
 			// load the right version of the .wasm binaries based on what is supported by the user's browser.
@@ -104,7 +104,7 @@ const aioli = {
 			}
 		}
 
-		aioli.log("Ready");
+		aioli._log("Ready");
 		return true;
 	},
 
@@ -124,7 +124,7 @@ const aioli = {
 		let toMountFiles = [], toSymlink = [], mountPaths = [];
 		if(!files?.length || typeof files === "string")
 			files = [ files ];
-		aioli.log(`Mounting ${files.length} files`);
+		aioli._log(`Mounting ${files.length} files`);
 
 		// Sort files by type: File vs. Blob vs. URL
 		for(let file of files)
@@ -172,7 +172,7 @@ const aioli = {
 			try {
 				aioli.tools[1].module.FS.unlink(`/shared${d.newpath}`)
 			} catch(e) {}
-			aioli.log(`Creating symlink: /shared${d.newpath} --> /shared${d.oldpath}`)
+			aioli._log(`Creating symlink: /shared${d.newpath} --> /shared${d.oldpath}`)
 			aioli.tools[1].module.FS.symlink(`/shared${d.oldpath}`, `/shared${d.newpath}`);
 		})
 
@@ -185,7 +185,7 @@ const aioli = {
 	async exec(command)
 	{
 		// Input validation
-		aioli.log(`Executing: %c${command}%c`, "color:darkblue; font-weight:bold");
+		aioli._log(`Executing: %c${command}%c`, "color:darkblue; font-weight:bold");
 		if(!command)
 			throw "Expecting a command";
 		// Extract tool name 
@@ -217,7 +217,7 @@ const aioli = {
 	// =========================================================================
 	// Utilities
 	// =========================================================================
-	log(message) {
+	_log(message) {
 		if(!aioli.config.debug)
 			return;
 
