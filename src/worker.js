@@ -80,13 +80,12 @@ const aioli = {
 
 			// The first tool we initialize has the main filesystem, which other tools will mount
 			const FS = tool.module.FS;
-			if(i == 0)
-			{
+			if(i == 0) {
 				// Create needed folders
 				FS.mkdir(aioli.config.dirData, 0o777);
 				FS.mkdir(aioli.config.dirMounted, 0o777);
 
-				// Set the working directory to be that mount folder for convenience
+				// Set the working directory for convenience
 				FS.chdir(aioli.config.dirData);
 
 				// Track this filesystem so we don't need to do aioli.tools[0].module.FS every time
@@ -190,12 +189,12 @@ const aioli = {
 		// Does it match a program we've already loaded?
 		const tools = aioli.tools.filter(d => d.program == toolName);
 		if(tools.length == 0)
-		throw `Program ${toolName} not found.`;
+			throw `Program ${toolName} not found.`;
 		// Prepare tool
 		const tool = tools[0];		
 		tool.stdout = "";
 		tool.stderr = "";
-		
+
 		// Run command. Stdout/Stderr will be saved to "tool.stdout"/"tool.stderr" (see "print" and "printErr" above)
 		tool.module.callMain(args);
 
