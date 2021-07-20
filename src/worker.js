@@ -6,6 +6,7 @@ const aioli = {
 	tools: [],   // Genomics tools that are available to use in this WebWorker
 	config: {},  // See main.js for defaults
 	files: [],   // File/Blob objects that represent local user files we mount to a virtual filesystem
+	fs: {},      // Main WebAssembly module's filesystem (equivalent to aioli.tools[0].module.FS)
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -78,16 +79,20 @@ const aioli = {
 			const FS = tool.module.FS;
 			if(i == 0)
 			{
+				// Create needed folders
 				FS.mkdir(aioli.config.dirData, 0o777);
 				FS.mkdir(aioli.config.dirMounted, 0o777);
 
 				// Set the working directory to be that mount folder for convenience
 				FS.chdir(aioli.config.dirData);
+
+				// Track this filesystem so we don't need to do aioli.tools[0].module.FS every time
+				aioli.fs = FS;
 			} else {
 				FS.mkdir(aioli.config.dirShared);
 				FS.mount(tool.module.PROXYFS, {
 					root: "/",
-					fs: aioli.tools[0].module.FS  // mount the first tool's filesystem
+					fs: aioli.fs  // mount the first tool's filesystem
 				}, aioli.config.dirShared);
 
 				// Set the working directory to be that mount folder for convenience
@@ -106,7 +111,6 @@ const aioli = {
 	// =========================================================================
 	mount(files)
 	{
-		const FS = aioli.tools[0].module.FS;
 		const dirMounted = aioli.config.dirMounted;
 		const dirData = aioli.config.dirData;
 
@@ -131,12 +135,12 @@ const aioli = {
 					newpath: `${dirData}/${file.name}`
 				};
 				toSymlink.push(paths);
-				mountPaths.push(paths.oldpath);
+				mountPaths.push(paths.newpath);
 
 			// Handle URLs: mount "https://website.com/some/path.js" to "/urls/website.com-some-path.js")
 			} else if(typeof file == "string" && file.startsWith("http")) {
 				const fileName = file.split("//").pop().replace(/\//g, "-");
-				FS.createLazyFile(dirData, fileName, file, true, true);
+				aioli.fs.createLazyFile(dirData, fileName, file, true, true);
 				mountPaths.push(`${dirData}/${fileName}`);
 
 			// Otherwise, incorrect data provided
@@ -146,20 +150,19 @@ const aioli = {
 		}
 
 		// Unmount and remount Files and Blobs since WORKERFS is read-only (i.e. can only mount a folder once)
-		if(FS.isDir(dirMounted))
-			FS.unmount(dirMounted);
+		if(aioli.fs.isDir(dirMounted))
+			aioli.fs.unmount(dirMounted);
 
 		// Mount File & Blob objects
 		aioli.files = aioli.files.concat(toMountFiles);
-		FS.mount(aioli.tools[0].module.WORKERFS, {
+		aioli.fs.mount(aioli.tools[0].module.WORKERFS, {
 			files: aioli.files.filter(f => f instanceof File),
 			blobs: aioli.files.filter(f => f?.data instanceof Blob)
 		}, dirMounted);
 
-
 		// Create symlinks for convenience
 		toSymlink.map(d => {
-			FS.symlink(d.oldpath, d.newpath);
+			aioli.fs.symlink(d.oldpath, d.newpath);
 		})
 
 		return mountPaths;
