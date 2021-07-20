@@ -5,8 +5,7 @@ const aioli = {
 	// Configuration
 	tools: [],   // Genomics tools that are available to use in this WebWorker
 	config: {},  // See main.js for defaults
-	files: [],   // File objects that represent local user files we mount to a virtual filesystem
-	blobs: [],   // Blob objects mounted to a virtual filesystem. Format: { name: "blob.txt", data: <Blob> }
+	files: [],   // File/Blob objects that represent local user files we mount to a virtual filesystem
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -76,9 +75,15 @@ const aioli = {
 			// -----------------------------------------------------------------
 
 			// The first tool we initialize has the main filesystem, which other tools will mount
-			if(i != 0)
+			const FS = tool.module.FS;
+			if(i == 0)
 			{
-				const FS = tool.module.FS;
+				FS.mkdir(aioli.config.dirData, 0o777);
+				FS.mkdir(aioli.config.dirMounted, 0o777);
+
+				// Set the working directory to be that mount folder for convenience
+				FS.chdir(aioli.config.dirData);
+			} else {
 				FS.mkdir(aioli.config.dirShared);
 				FS.mount(tool.module.PROXYFS, {
 					root: "/",
@@ -86,7 +91,7 @@ const aioli = {
 				}, aioli.config.dirShared);
 
 				// Set the working directory to be that mount folder for convenience
-				FS.chdir(aioli.config.dirShared);
+				FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
 			}
 		}
 
@@ -101,53 +106,54 @@ const aioli = {
 	// =========================================================================
 	mount(files)
 	{
-		let mountPaths = [];
 		const FS = aioli.tools[0].module.FS;
 		const dirMounted = aioli.config.dirMounted;
-		const dirURLs = aioli.config.dirURLs;
+		const dirData = aioli.config.dirData;
 
 		// Input validation. Note that FileList is not an array so we can't use Array.isArray() but it does have a
 		// length attribute. So do strings, which is why we explicitly check for those.
-		let toMountFiles = [], toMountBlobs = [];
+		let toMountFiles = [], toSymlink = [], mountPaths = [];
 		if(!files?.length || typeof files === "string")
 			files = [ files ];
 
 		// Sort files by type: File vs. Blob vs. URL
 		for(let file of files)
 		{
-			// Handle File objects
-			if(file instanceof File) {
+			// Handle File/Blob objects
+			// Blob formats: { name: "filename.txt", data: new Blob(['blob data']) }
+			if(file instanceof File || (file?.data instanceof Blob && file.name))
+			{
 				toMountFiles.push(file);
-				mountPaths.push(`${dirMounted}/${file.name}`);
-			}
-			// Handle Blob objects { name: "filename.txt", data: new Blob(['blob data']) }
-			else if(file?.data instanceof Blob && file.name) {
-				toMountBlobs.push(file);
-				mountPaths.push(`${dirMounted}/${file.name}`);
-			}
+
+				// Track paths
+				const paths = {
+					oldpath: `${dirMounted}/${file.name}`,
+					newpath: `${dirData}/${file.name}`
+				};
+				toSymlink.push(paths);
+				mountPaths.push(paths.oldpath);
+
 			// Handle URLs: mount "https://website.com/some/path.js" to "/urls/website.com-some-path.js")
-			else if(typeof file == "string" && file.startsWith("http")) {
+			} else if(typeof file == "string" && file.startsWith("http")) {
 				const fileName = file.split("//").pop().replace(/\//g, "-");
-				FS.createLazyFile(dirURLs, fileName, file, true, true);
-				mountPaths.push(`${dirURLs}/${fileName}`);
+				FS.createLazyFile(dirData, fileName, file, true, true);
+				mountPaths.push(`${dirData}/${fileName}`);
+
 			// Otherwise, incorrect data provided
 			} else {
 				throw "Cannot mount file(s) specified. Must be a File, Blob, or a URL string.";
 			}
 		}
-		aioli.files = aioli.files.concat(toMountFiles);
-		aioli.blobs = aioli.blobs.concat(toMountBlobs);
 
 		// Unmount and remount Files and Blobs since WORKERFS is read-only (i.e. can only mount a folder once)
 		if(FS.isDir(dirMounted))
 			FS.unmount(dirMounted);
-		else
-			FS.mkdir(dirMounted, 0o777);
 
 		// Mount File & Blob objects
+		aioli.files = aioli.files.concat(toMountFiles);
 		FS.mount(aioli.tools[0].module.WORKERFS, {
-			files: aioli.files,
-			blobs: aioli.blobs
+			files: aioli.files.filter(f => f instanceof File),
+			blobs: aioli.files.filter(f => f?.data instanceof Blob)
 		}, dirMounted);
 
 		return mountPaths;
