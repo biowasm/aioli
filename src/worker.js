@@ -88,13 +88,62 @@ const aioli = {
 
 	// =========================================================================
 	// Mount files to the virtual file system
+	// Supports <FileList>, <File>, <Blob>, and string URLs:
+	//		mount(<FileList>)
+	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, "https://somefile.com" ])
 	// =========================================================================
-	// TODO:
-	mount(files) {
-		console.log("mount")
-		console.log(files[0].name)
-		console.log(files[0].size)
-		return 123
+	mount(files)
+	{
+		let mountPaths = [];
+		const FS = aioli.tools[0].module.FS;
+		const dirMounted = aioli.config.dirMounted;
+		const dirURLs = aioli.config.dirURLs;
+
+		// Input validation. Note that FileList is not an array so we can't use Array.isArray() but it does have a
+		// length attribute. So do strings, which is why we explicitly check for those.
+		let toMountFiles = [], toMountBlobs = [];
+		if(!files?.length || typeof files === "string")
+			files = [ files ];
+
+		// Sort files by type: File vs. Blob vs. URL
+		for(let file of files)
+		{
+			// Handle File objects
+			if(file instanceof File) {
+				toMountFiles.push(file);
+				mountPaths.push(`${dirMounted}/${file.name}`);
+			}
+			// Handle Blob objects { name: "filename.txt", data: new Blob(['blob data']) }
+			else if(file?.data instanceof Blob && file.name) {
+				toMountBlobs.push(file);
+				mountPaths.push(`${dirMounted}/${file.name}`);
+			}
+			// Handle URLs: mount "https://website.com/some/path.js" to "/urls/website.com-some-path.js")
+			else if(typeof file == "string" && file.startsWith("http")) {
+				const fileName = file.split("//").pop().replace(/\//g, "-");
+				FS.createLazyFile(dirURLs, fileName, file, true, true);
+				mountPaths.push(`${dirURLs}/${fileName}`);
+			// Otherwise, incorrect data provided
+			} else {
+				throw "Cannot mount file(s) specified. Must be a File, Blob, or a URL string.";
+			}
+		}
+		aioli.files = aioli.files.concat(toMountFiles);
+		aioli.blobs = aioli.blobs.concat(toMountBlobs);
+
+		// Unmount and remount Files and Blobs since WORKERFS is read-only (i.e. can only mount a folder once)
+		if(FS.isDir(dirMounted))
+			FS.unmount(dirMounted);
+		else
+			FS.mkdir(dirMounted, 0o777);
+
+		// Mount File & Blob objects
+		FS.mount(aioli.tools[0].module.WORKERFS, {
+			files: aioli.files,
+			blobs: aioli.blobs
+		}, dirMounted);
+
+		return mountPaths;
 	},
 
 	// =========================================================================
