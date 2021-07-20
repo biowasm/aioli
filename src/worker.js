@@ -215,8 +215,51 @@ const aioli = {
 	},
 
 	// =========================================================================
+	// Utility functions for common file operations
+	// =========================================================================
+	cat(path) {
+		return aioli._fileop("cat", path);
+	},
+	ls(path) {
+		return aioli._fileop("ls", path);
+	},
+	download(path) {
+		return aioli._fileop("download", path);
+	},
+
+	// =========================================================================
 	// Utilities
 	// =========================================================================
+	_fileop(operation, path) {
+		aioli._log(`Running ${operation} ${path}`);
+
+		// Check whether the file exists
+		const FS = aioli.tools[1].module.FS;
+		const info = FS.analyzePath(path);
+		if(!info.exists)
+			return false;
+
+		// Execute operation of interest
+		switch (operation) {
+			case "cat":
+				return FS.readFile(path, { encoding: "utf8" });
+				break;
+		
+			case "ls":
+				if(FS.isFile(info.object.mode))
+					return FS.stat(path);
+				return FS.readdir(path);
+				break;
+
+			case "download":
+				const blob = new Blob([ this.cat(path) ]);
+				return URL.createObjectURL(blob);
+				break;
+		}
+
+		return false;
+	},
+
 	_log(message) {
 		if(!aioli.config.debug)
 			return;
