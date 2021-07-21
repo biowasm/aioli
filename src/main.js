@@ -38,6 +38,22 @@ export default class Aioli
 		// Overwrite default config if specified
 		config = Object.assign({}, CONFIG_DEFAULTS, config);
 
+		// For convenience, support "<tool>/<version>" or "<tool>/<program>/<version>" instead of object config
+		tools = tools.map(tool => {
+			if(typeof tool !== "string")
+				return tool;
+
+			const toolSplit = tool.split("/");
+			if(toolSplit.length != 2 && toolSplit.length != 3)
+				throw "Expecting '<tool>/<version>' or '<tool>/<program>/<version>'";
+
+			return {
+				tool: toolSplit[0],
+				program: toolSplit.length == 3 ? toolSplit[1] : toolSplit[0],
+				version: toolSplit[toolSplit.length - 1]
+			};
+		});
+
 		// Add base module to list of tools to initialize
 		tools = [{
 			tool: "base",
