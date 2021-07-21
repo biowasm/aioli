@@ -40,7 +40,7 @@ export default class Aioli
 
 		// Add base module to list of tools to initialize
 		tools = [{
-			module: "base",
+			tool: "base",
 			version: pkg.version,
 			urlPrefix: config.urlBaseModule
 		}, ...tools];

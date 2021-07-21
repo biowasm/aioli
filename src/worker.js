@@ -105,6 +105,41 @@ const aioli = {
 			}
 		}
 
+		// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
+		// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
+		// other modules to also have access to those sample data files.
+		for(let i in aioli.tools)
+		{
+			// Skip base module
+			if(i == 0)
+				continue;
+
+			for(let j in aioli.tools)
+			{
+				// Skip base module and self
+				if(j == 0 || i == j)
+					continue;
+
+				const fsSrc = aioli.tools[i].module.FS;
+				const fsDst = aioli.tools[j].module.FS;
+				
+				// Make sure source tool actually has such a folder (must be the same as the "module", not "program").
+				// Skip if the destination filesystem already has that folder (could theoretically happen if initialize)
+				// two copies of the same module.
+				const path = `/${aioli.tools[i].tool}`;
+				if(!fsSrc.analyzePath(path).exists || fsDst.analyzePath(path).exists)
+					continue;
+
+				aioli._log(`Mounting ${path} onto ${aioli.tools[j].tool} filesystem`);
+				fsDst.mkdir(path);
+				fsDst.mount(aioli.tools[0].module.PROXYFS, {
+					root: path,
+					fs: fsSrc
+				}, path);
+
+			}
+		}
+
 		aioli._log("Ready");
 		return true;
 	},
