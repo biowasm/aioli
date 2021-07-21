@@ -12,9 +12,9 @@ const aioli = {
 	// Initialize the WebAssembly module(s)
 	// Supports array of tool info, where each tool is represented by:
 	// 		{
-	// 			module: "samtools",                           // Required
+	// 			tool: "samtools",                             // Required
 	// 			version: "1.10",                              // Required
-	// 			program: "samtools",                          // Optional, default="module" name. Only use this for tools with multiple subtools
+	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
 	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local Aioli development
 	// 		},
 	// =========================================================================
@@ -34,12 +34,12 @@ const aioli = {
 			// -----------------------------------------------------------------
 			// By default, use the CDN path, but also accept custom paths for each tool
 			if(!tool.urlPrefix)
-				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.module}/${tool.version}`;
+				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.tool}/${tool.version}`;
 
-			// In most cases, the program is the same as the module, but there are exceptions. For example, for the
-			// module "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
+			// In most cases, the program is the same as the tool name, but there are exceptions. For example, for the
+			// tool "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
 			if(!tool.program)
-				tool.program = tool.module;
+				tool.program = tool.tool;
 
 			aioli._log(`Loading ${tool.program} v${tool.version}`);
 
