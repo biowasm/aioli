@@ -20,6 +20,10 @@ const aioli = {
 	// =========================================================================
 	async init()
 	{
+		// The base biowasm module is always there ==> expect at least 2 modules
+		if(aioli.tools.length < 2)
+			throw "Expecting at least 1 tool.";
+
 		// Load each tool
 		for(let i in aioli.tools)
 		{
@@ -186,11 +190,11 @@ const aioli = {
 		aioli._log(`Executing: %c${command}%c`, "color:darkblue; font-weight:bold");
 		if(!command)
 			throw "Expecting a command";
-		// Extract tool name 
+		// Extract tool name and arguments
 		const args = command.split(" ");
 		const toolName = args.shift();
 
-		// Does it match a program we've already loaded?
+		// Does it match a program we've already initialized?
 		const tools = aioli.tools.filter(d => d.program == toolName);
 		if(tools.length == 0)
 			throw `Program ${toolName} not found.`;
@@ -209,7 +213,7 @@ const aioli = {
 		return {
 			stdout: tool.stdout,
 			stderr: tool.stderr
-		}
+		};
 	},
 
 	// =========================================================================
@@ -218,15 +222,17 @@ const aioli = {
 	cat(path) {
 		return aioli._fileop("cat", path);
 	},
+
 	ls(path) {
 		return aioli._fileop("ls", path);
 	},
+
 	download(path) {
 		return aioli._fileop("download", path);
 	},
 
 	// =========================================================================
-	// Utilities
+	// Internal utilities
 	// =========================================================================
 	_fileop(operation, path) {
 		aioli._log(`Running ${operation} ${path}`);
@@ -234,25 +240,24 @@ const aioli = {
 		// Check whether the file exists
 		const FS = aioli.tools[1].module.FS;
 		const info = FS.analyzePath(path);
-		if(!info.exists)
+		if(!info.exists) {
+			aioli._log(`File ${path} not found.`);
 			return false;
+		}
 
 		// Execute operation of interest
 		switch (operation) {
 			case "cat":
 				return FS.readFile(path, { encoding: "utf8" });
-				break;
 		
 			case "ls":
 				if(FS.isFile(info.object.mode))
 					return FS.stat(path);
 				return FS.readdir(path);
-				break;
 
 			case "download":
 				const blob = new Blob([ this.cat(path) ]);
 				return URL.createObjectURL(blob);
-				break;
 		}
 
 		return false;
