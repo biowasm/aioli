@@ -12,9 +12,9 @@ const aioli = {
 	// Initialize the WebAssembly module(s)
 	// Supports array of tool info, where each tool is represented by:
 	// 		{
-	// 			module: "seq-align",
-	//			program: "smith_waterman",                    // Optional, default="module" name. Only use this for tools with multiple subtools
-	// 			version: "latest",                            // Optional, default="latest"
+	// 			module: "samtools",                           // Required
+	// 			version: "1.10",                              // Required
+	// 			program: "samtools",                          // Optional, default="module" name. Only use this for tools with multiple subtools
 	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local Aioli development
 	// 		},
 	// =========================================================================
@@ -32,16 +32,12 @@ const aioli = {
 			if(!tool.urlPrefix)
 				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.module}/${tool.version}`;
 
-			// Unless specified, we want to use the latest version of a tool
-			if(!tool.version)
-				tool.version = "latest";
-
 			// In most cases, the program is the same as the module, but there are exceptions. For example, for the
 			// module "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
 			if(!tool.program)
 				tool.program = tool.module;
 
-			aioli._log(`Loading ${tool.program} version=${tool.version}`);
+			aioli._log(`Loading ${tool.program} v${tool.version}`);
 
 			// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
 			// load the right version of the .wasm binaries based on what is supported by the user's browser.
