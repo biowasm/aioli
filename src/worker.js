@@ -56,6 +56,7 @@ const aioli = {
 			// -----------------------------------------------------------------
 			// All biowasm modules export the variable "Module" so assign it
 			self.importScripts(`${tool.urlPrefix}/${tool.program}.js`);
+			// Initialize the Emscripten module and pass along settings to overwrite
 			tool.module = await Module({
 				// By default, tool name is hardcoded as "./this.program"
 				thisProgram: tool.program,
@@ -76,23 +77,23 @@ const aioli = {
 			// Setup shared virtual file system
 			// -----------------------------------------------------------------
 
-			// The first tool we initialize has the main filesystem, which other tools will mount
+			// The first tool we initialize (i.e. base module) has the main filesystem, which other tools will mount
 			const FS = tool.module.FS;
 			if(i == 0) {
 				// Create needed folders
 				FS.mkdir(aioli.config.dirData, 0o777);
 				FS.mkdir(aioli.config.dirMounted, 0o777);
-
 				// Set the working directory for convenience
 				FS.chdir(aioli.config.dirData);
 
 				// Track this filesystem so we don't need to do aioli.tools[0].module.FS every time
 				aioli.fs = FS;
 			} else {
+				// PROXYFS allows use to point "/shared" to the base module's filesystem "/"
 				FS.mkdir(aioli.config.dirShared);
 				FS.mount(tool.module.PROXYFS, {
 					root: "/",
-					fs: aioli.fs  // mount the first tool's filesystem
+					fs: aioli.fs
 				}, aioli.config.dirShared);
 
 				// Set the working directory to be that mount folder for convenience
@@ -112,12 +113,13 @@ const aioli = {
 	// =========================================================================
 	mount(files)
 	{
-		const dirMounted = aioli.config.dirMounted;
 		const dirData = aioli.config.dirData;
+		const dirShared = aioli.config.dirShared;
+		const dirMounted = aioli.config.dirMounted;
 
 		// Input validation. Note that FileList is not an array so we can't use Array.isArray() but it does have a
 		// length attribute. So do strings, which is why we explicitly check for those.
-		let toMountFiles = [], toSymlink = [], mountPaths = [];
+		let toMount = [], mountedPaths = [];
 		if(!files?.length || typeof files === "string")
 			files = [ files ];
 		aioli._log(`Mounting ${files.length} files`);
@@ -127,23 +129,17 @@ const aioli = {
 		{
 			// Handle File/Blob objects
 			// Blob formats: { name: "filename.txt", data: new Blob(['blob data']) }
-			if(file instanceof File || (file?.data instanceof Blob && file.name))
-			{
-				toMountFiles.push(file);
-
-				// Track paths
-				const paths = {
-					oldpath: `${dirMounted}/${file.name}`,
-					newpath: `${dirData}/${file.name}`
-				};
-				toSymlink.push(paths);
-				mountPaths.push(paths.newpath);
+			if(file instanceof File || (file?.data instanceof Blob && file.name)) {
+				toMount.push(file);
+				mountedPaths.push(file.name);
 
 			// Handle URLs: mount "https://website.com/some/path.js" to "/urls/website.com-some-path.js")
 			} else if(typeof file == "string" && file.startsWith("http")) {
+				// Mount a URL "lazily" to the file system, i.e. don't download any of it, but will automatically do
+				// HTTP Range requests when a tool requests a subset of bytes from that file.
 				const fileName = file.split("//").pop().replace(/\//g, "-");
 				aioli.fs.createLazyFile(dirData, fileName, file, true, true);
-				mountPaths.push(`${dirData}/${fileName}`);
+				mountedPaths.push(fileName);
 
 			// Otherwise, incorrect data provided
 			} else {
@@ -157,22 +153,28 @@ const aioli = {
 		} catch(e) {}
 
 		// Mount File & Blob objects
-		aioli.files = aioli.files.concat(toMountFiles);
+		aioli.files = aioli.files.concat(toMount);
 		aioli.fs.mount(aioli.tools[0].module.WORKERFS, {
 			files: aioli.files.filter(f => f instanceof File),
 			blobs: aioli.files.filter(f => f?.data instanceof Blob)
 		}, dirMounted);
 
-		// Create symlinks for convenience
-		toSymlink.map(d => {
+		// Create symlinks for convenience. The folder "dirMounted" is a WORKERFS, which is read-only. By adding
+		// symlinks to a separate writeable folder "dirData", we can support commands like "samtools index abc.bam",
+		// which create a "abc.bam.bai" file in the same path where the .bam file is created.
+		toMount.map(file => {
+			const oldpath = `${dirShared}${dirMounted}/${file.name}`;
+			const newpath = `${dirShared}${dirData}/${file.name}`;
 			try {
-				aioli.tools[1].module.FS.unlink(`/shared${d.newpath}`)
+				aioli.tools[1].module.FS.unlink(newpath);
 			} catch(e) {}
-			aioli._log(`Creating symlink: /shared${d.newpath} --> /shared${d.oldpath}`)
-			aioli.tools[1].module.FS.symlink(`/shared${d.oldpath}`, `/shared${d.newpath}`);
+			aioli._log(`Creating symlink: ${newpath} --> ${oldpath}`)
+
+			// Create symlink within first module's filesystem (note: tools[0] is always the "base" biowasm module)
+			aioli.tools[1].module.FS.symlink(oldpath, newpath);
 		})
 
-		return mountPaths;
+		return mountedPaths.map(path => `${dirShared}${dirData}/${path}`);
 	},
 
 	// =========================================================================
