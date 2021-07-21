@@ -21,7 +21,7 @@ const CONFIG_DEFAULTS = {
 	dirData: "/data",
 
 	// Toggle debug console messages
-	debug: true
+	debug: false
 };
 
 // Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one

@@ -136,7 +136,6 @@ const aioli = {
 					root: path,
 					fs: fsSrc
 				}, path);
-
 			}
 		}
 
