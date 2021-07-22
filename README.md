@@ -15,10 +15,9 @@ Running the genomics tool `samtools` on a small file:
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
 <script type="module">
 // Note that we use `script type="module"` so we can use top-level await statements
-const CLI = await new Aioli("samtools/1.10")
+const CLI = await new Aioli("samtools/1.10");
 const output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
-console.log(output.stdout);
-console.warn(output.stderr);
+console.log(output);
 </script>
 ```
 
@@ -29,17 +28,15 @@ Aioli supports running multiple bioinformatics tools at once:
 ```html
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
 <script type="module">
-const CLI = new Aioli(["samtools/1.10", "seqtk/1.2"])
+const CLI = await new Aioli(["samtools/1.10", "seqtk/1.2"]);
 
 // Run "samtools view"
 let output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
-console.log(output.stdout);
-console.warn(output.stderr);
+console.log(output);
 
 // Run "seqtk" to get the help screen
 output = await CLI.exec("seqtk");
-console.log(output.stdout);
-console.warn(output.stderr);
+console.log(output);
 </script>
 ```
 
@@ -53,19 +50,18 @@ We can update the previous example to run `samtools` on a file provided by the u
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
 <script type="module">
 const CLI = await new Aioli("samtools/1.10");
-const output = await CLI.exec("--version-only");
-console.log(`Loaded ${output.stdout}`);
+const output = await CLI.exec("samtools --version-only");
+console.log(`Loaded ${output}`);
 
 // Get the SAM file header when user selects a file from their computer
 async function runSamtools(event) {
     // First, mount the file(s) to a virtual file system
     const files = event.target.files;
-    await CLI.mount(event.target);
+    await CLI.mount(files);
 
     // Retrieve SAM header on the first file the user selected
     const output = await CLI.exec(`samtools view -H ${files[0].name}`);
-    console.log(output.stdout);
-    console.warn(output.stderr);
+    console.log(output);
 }
 
 document.getElementById("myfile").addEventListener("change", runSamtools, false);
