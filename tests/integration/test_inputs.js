@@ -12,8 +12,8 @@ describe("Input validation", () => {
 	it("Should provide at least one tool", async () => {
 		try {
 			new Aioli([], {
-				urlAioli: "../../../dist/aioli.worker.js"
-			}).init();
+				urlAioli: "http://localhost:11111/dist/aioli.worker.js"
+			});
 		} catch (error) {
 			expect(error).to.equal("Expecting at least 1 tool.");
 		}
