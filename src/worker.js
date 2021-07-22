@@ -56,6 +56,14 @@ const aioli = {
 			}
 
 			// -----------------------------------------------------------------
+			// Handle Stdout/stderr
+			// -----------------------------------------------------------------
+			let fnPrint = text => tool.stdout += `${text}\n`;
+			let fnPrintErr = text => tool.stderr += `${text}\n`;
+			if(aioli.config.printInterleaved)
+				fnPrintErr = text => tool.stdout += `${text}\n`;
+
+			// -----------------------------------------------------------------
 			// Import the WebAssembly module
 			// -----------------------------------------------------------------
 			// All biowasm modules export the variable "Module" so assign it
@@ -69,8 +77,8 @@ const aioli = {
 				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
 
 				// Setup print functions to store stdout/stderr output
-				print: text => tool.stdout += `${text}\n`,
-				printErr: text => tool.stderr += `${text}\n`
+				print: fnPrint,
+				printErr: fnPrintErr
 			});
 
 			// Initialize variables
@@ -243,6 +251,10 @@ const aioli = {
 		// Re-open stdout/stderr (fix error "error closing standard output: -1")
 		tool.module.FS.streams[1] = tool.module.FS.open("/dev/stdout", "w");
 		tool.module.FS.streams[2] = tool.module.FS.open("/dev/stderr", "w");
+
+		// Return output, either stdout/stderr interleaved, or each one separately
+		if(aioli.config.printInterleaved)
+			return tool.stdout;
 
 		return {
 			stdout: tool.stdout,

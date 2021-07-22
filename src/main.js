@@ -19,6 +19,8 @@ const CONFIG_DEFAULTS = {
 	// so that operations like "samtools index" don't crash due to the read-only nature of WORKERS).
 	// Also mount URLs lazily in that folder.
 	dirData: "/data",
+	// Interleave stdout/stderr. If set to false, `.exec()` returns an object { "stdout": <text>, "stderr": <text> }
+	printInterleaved: true,
 
 	// Debugging
 	debug: false,
