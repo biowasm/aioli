@@ -30,12 +30,12 @@ Aioli supports running multiple bioinformatics tools at once:
 <script type="module">
 const CLI = await new Aioli(["samtools/1.10", "seqtk/1.2"]);
 
-// Run "samtools view"
-let output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
-console.log(output);
+// Here we write to a file with one tool, and use it as input for another tool.
+// Convert a ".sam" file to a ".fastq", and save the result to "./toy.fastq"
+let output = await CLI.exec("samtools fastq -o toy.fastq /samtools/examples/toy.sam");
 
-// Run "seqtk" to get the help screen
-output = await CLI.exec("seqtk");
+// Run the tool "seqtk" on "toy.fastq" to generate QC metrics
+output = await CLI.exec("seqtk fqchk toy.fastq");
 console.log(output);
 </script>
 ```
@@ -57,7 +57,13 @@ console.log(`Loaded ${output}`);
 async function runSamtools(event) {
     // First, mount the file(s) to a virtual file system
     const files = event.target.files;
-    await CLI.mount(files);
+    // The function `.mount()` returns the absolute paths of each file mounted
+    const paths = await CLI.mount(files);
+
+    // List files in the current folder
+    console.log("ls:", await CLI.ls("."));
+    // Get info about the file we mounted (e.g. size, timestamp)
+    console.log(`ls ${files[0].name}:`, await CLI.ls(paths[0]));
 
     // Retrieve SAM header on the first file the user selected
     const output = await CLI.exec(`samtools view -H ${files[0].name}`);
@@ -95,16 +101,18 @@ new Aioli("seq-align/needleman_wunsch/2017.10.18");
 
 ### Advanced
 
-By default, Aioli retrieves the `.wasm` modules and the Aioli WebWorker code from the biowasm CDN for convenience, but you can also load files from local sources:
+By default, Aioli retrieves the `.wasm` modules and the Aioli WebWorker code from the biowasm CDN for convenience, but you can also load files from local sources. There are also additional configuration options you can pass along:
 
 ```javascript
 new Aioli({
     tool: "seq-align",
     version: "2017.10.18",
-    program: "smith_waterman",              // optional (defaults to "tool" name)
-    urlPrefix: "./path/to/wasm/files/",     // optional (defaults to biowasm CDN)
+    program: "smith_waterman",              // Optional: custom program to run within the tool; not needed for most tools (default=same as "tool" name)
+    urlPrefix: "./path/to/wasm/files/",     // Optional: custom path to .js/.wasm files; for local biowasm development (default=biowasm CDN)
 }, {
-    urlAioli: "./path/to/aioli.worker.js",  // optional (defaults to biowasm CDN)
+    urlAioli: "./path/to/aioli.worker.js",  // Optional: custom path to aioli.js and aioli.worker.js; for local Aioli development (default=biowasm CDN)
+    printInterleaved: true,                 // Optional: whether `exec()` returns interleaved stdout/stderr; if false, returns object with stdout/stderr keys (default=true)
+    debug: false,                           // Optional: set to true to see console log messages for debugging (default=false)
 });
 ```
 
@@ -117,6 +125,10 @@ new Aioli({
 | fastq.bio | [fastq.bio](http://www.fastq.bio/) | [RobertAboukhalil/fastq.bio](https://github.com/robertaboukhalil/fastq.bio) |
 | bam.bio | [bam.bio](http://www.bam.bio/) | [RobertAboukhalil/bam.bio](https://github.com/robertaboukhalil/bam.bio) |
 
+
+## Tests
+
+Run `npm run test`.
 
 ## Background info
 
