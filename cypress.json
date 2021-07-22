@@ -1,0 +1,8 @@
+{
+    "integrationFolder": "tests/integration",
+    "fixturesFolder": false,
+    "pluginsFile": false,
+    "supportFile": false,
+    "defaultCommandTimeout": 40000,
+    "port": 11111
+}
