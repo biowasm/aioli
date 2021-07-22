@@ -13,13 +13,12 @@ Running the genomics tool `samtools` on a small file:
 
 ```html
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
-<script>
-let aioli = new Aioli("samtools/1.10");
-aioli.init().then(async () => {
-    const output = await aioli.exec("samtools view -q 20 /samtools/examples/toy.sam");
-    console.log(output.stdout);
-    console.warn(output.stderr);
-});
+<script type="module">
+// Note that we use `script type="module"` so we can use top-level await statements
+const CLI = await new Aioli("samtools/1.10")
+const output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
+console.log(output.stdout);
+console.warn(output.stderr);
 </script>
 ```
 
@@ -29,19 +28,18 @@ Aioli supports running multiple bioinformatics tools at once:
 
 ```html
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
-<script>
-let aioli = new Aioli(["samtools/1.10", "seqtk/1.2"]);
-aioli.init().then(async () => {
-    // Show samtools view help screen
-    const samtools = await aioli.exec("samtools view");
-    console.log(samtools.stdout);
-    console.warn(samtools.stderr);
+<script type="module">
+const CLI = new Aioli(["samtools/1.10", "seqtk/1.2"])
 
-    // Show seqtk help screen
-    const seqtk = await aioli.exec("seqtk");
-    console.log(seqtk.stdout);
-    console.warn(seqtk.stderr);
-});
+// Run "samtools view"
+let output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
+console.log(output.stdout);
+console.warn(output.stderr);
+
+// Run "seqtk" to get the help screen
+output = await CLI.exec("seqtk");
+console.log(output.stdout);
+console.warn(output.stderr);
 </script>
 ```
 
@@ -53,23 +51,19 @@ We can update the previous example to run `samtools` on a file provided by the u
 <input id="myfile" type="file" multiple>
 
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
-<script>
-let aioli = new Aioli("samtools/1.10");
-
-// Initialize samtools and output the version
-aioli.init().then(async () => {
-    const output = await samtools.exec("--version-only");
-    console.log(`Loaded ${output.stdout}`);
-})
+<script type="module">
+const CLI = await new Aioli("samtools/1.10");
+const output = await CLI.exec("--version-only");
+console.log(`Loaded ${output.stdout}`);
 
 // Get the SAM file header when user selects a file from their computer
 async function runSamtools(event) {
     // First, mount the file(s) to a virtual file system
     const files = event.target.files;
-    await aioli.mount(event.target);
+    await CLI.mount(event.target);
 
     // Retrieve SAM header on the first file the user selected
-    const output = await aioli.exec(`samtools view -H ${files[0].name}`);
+    const output = await CLI.exec(`samtools view -H ${files[0].name}`);
     console.log(output.stdout);
     console.warn(output.stderr);
 }

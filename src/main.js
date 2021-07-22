@@ -53,13 +53,29 @@ export default class Aioli
 			urlPrefix: config.urlBaseModule
 		}, ...tools];
 
-		// Create the WebWorker
-		const worker = new Worker(config.urlAioli);
-		const aioli = Comlink.wrap(worker);
+		// Set state
+		this.tools = tools;
+		this.config = config;
 
-		// Update configuration
-		aioli.tools = tools;
-		aioli.config = config;
+		return this.init();
+	}
+
+	// Initialize the WebWorker and the WebAssembly modules within it
+	async init() {
+		// Note: We can only create a WebWorker using a URL that has the same origin as the app running it, i.e. we
+		// can't do `new Worker("https://cdn.biowasm.com/v2/...")`, so instead we need to fetch the contents of that
+		// URL first, and then create the WebWorker. See <https://stackoverflow.com/a/60015898>.
+		const moduleJS = await (await fetch(this.config.urlAioli)).text();
+		const moduleBlob = new Blob([moduleJS], { type: "application/javascript" });
+
+		// Create the WebWorker
+		const worker = new Worker(URL.createObjectURL(moduleBlob));
+		const aioli = Comlink.wrap(worker);
+		aioli.tools = this.tools;
+		aioli.config = this.config;
+
+		// Initialize the tools inside the WebWorker
+		await aioli.init();
 
 		return aioli;
 	}
