@@ -22,6 +22,11 @@ const CONFIG_DEFAULTS = {
 	// Interleave stdout/stderr. If set to false, `.exec()` returns an object { "stdout": <text>, "stderr": <text> }
 	printInterleaved: true,
 
+	// Callback function to run whenever we receive a message from the WebWorker with payload { type: "biowasm", value: ... }.
+	// See <https://github.com/biowasm/biowasm/tree/main/tools/bhtsne> for an example of how this can be used to send regular updates
+	// back to the main thread before callMain() is done running.
+	callback: null,
+
 	// Debugging
 	debug: false,
 	env: "prd"
@@ -59,6 +64,11 @@ export default class Aioli
 		this.tools = tools;
 		this.config = config;
 
+		// Handle callback (delete it because we can't send a function to the WebWorker)
+		if(this.config.callback != null)
+			this.callback = this.config.callback;
+		delete this.config.callback;
+
 		return this.init();
 	}
 
@@ -72,6 +82,13 @@ export default class Aioli
 
 		// Create the WebWorker
 		const worker = new Worker(URL.createObjectURL(moduleBlob));
+		// Listen for "biowasm" messages from the WebWorker
+		if(this.callback)
+			worker.onmessage = e => {
+				if(e.data.type == "biowasm")
+					this.callback(e.data.value);
+			}
+
 		const aioli = Comlink.wrap(worker);
 		aioli.tools = this.tools;
 		aioli.config = this.config;
