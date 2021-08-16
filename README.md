@@ -126,6 +126,16 @@ new Aioli({
 | bam.bio | [bam.bio](http://www.bam.bio/) | [RobertAboukhalil/bam.bio](https://github.com/robertaboukhalil/bam.bio) |
 
 
+## Architecture
+
+* Aioli creates a single WebWorker, in which all WebAssembly tools run.
+* We use a [PROXYFS virtual filesystem](https://emscripten.org/docs/api_reference/Filesystem-API.html#filesystem-api-proxyfs) so we can share a filesystem across all WebAssembly modules, i.e. the output of one tool can be used as the input of another tool.
+* We use a [WORKERFS virtual filesystem](https://emscripten.org/docs/api_reference/Filesystem-API.html#filesystem-api-workerfs) to mount local files efficiently (i.e. without having to load all their contents into memory). To support use cases where tools need to create files in the same folder as those ready-only files (e.g. `samtools index`), we automatically create a symlink from each local file's WORKERFS path to a path in PROXYFS.
+* Once the WebWorker initializes, it loads the WebAssembly modules one at a time. To support this, we need to encapsulate each module using Emscripten's `-s MODULARIZE=1`, i.e. the `.js` file will contain a `Module` function that initializes the module and returns a `Promise` that resolves when the module is loaded.
+* We do WebAssembly feature detection at initialization using the biowasm `config.json` file. If, for example, a tool needs WebAssembly SIMD and the user has a browser that does not support it, we will load the non-SIMD version of that tool.
+* We communicate with the WebWorker using the [Comlink](https://github.com/GoogleChromeLabs/comlink) library.
+
+
 ## Tests
 
 Run `npm run test`.
