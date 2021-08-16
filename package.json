@@ -26,8 +26,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "test": "cypress open",
-    "pretest": "npm run build"
+    "test": "cypress run",
+    "test-open": "cypress open"
   },
   "files": [
     "dist"
