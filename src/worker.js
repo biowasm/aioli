@@ -248,6 +248,13 @@ const aioli = {
 		// Run command. Stdout/Stderr will be saved to "tool.stdout"/"tool.stderr" (see "print" and "printErr" above)
 		tool.module.callMain(args);
 
+		// Flush stdout/stderr to make sure we got everything. Otherwise, if use a command like 
+		// `bcftools query -f "%ALT" variants.bcf`, it won't output anything until the next
+		// invocation of that command!
+		try {
+			tool.module.FS.close( tool.module.FS.streams[1] );
+			tool.module.FS.close( tool.module.FS.streams[2] );
+		} catch (error) {}
 		// Re-open stdout/stderr (fix error "error closing standard output: -1")
 		tool.module.FS.streams[1] = tool.module.FS.open("/dev/stdout", "w");
 		tool.module.FS.streams[2] = tool.module.FS.open("/dev/stderr", "w");
