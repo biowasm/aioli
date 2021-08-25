@@ -43,7 +43,7 @@ const aioli = {
 		// ---------------------------------------------------------------------
 
 		// Initialize WebAssembly modules (downloads .wasm/.js/.json in parallel)
-		await Promise.all(aioli.tools.map(this._setup));
+		await Promise.all(aioli.tools.map(tool => this._setup(tool)));
 
 		// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
 		// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
