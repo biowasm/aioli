@@ -15,7 +15,7 @@ const aioli = {
 	// 			tool: "samtools",                             // Required
 	// 			version: "1.10",                              // Required
 	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
-	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local Aioli development
+	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
 	// 		},
 	// =========================================================================
 	async init()
@@ -25,85 +25,25 @@ const aioli = {
 			throw "Expecting at least 1 tool.";
 
 		// ---------------------------------------------------------------------
-		// Set default settings for all tools (fetch config.json files in parallel)
+		// Set up base module (do that first so that its filesystem is ready for
+		// the other modules to mount in parallel)
 		// ---------------------------------------------------------------------
-		await Promise.all(aioli.tools.map(async tool => {
-			// By default, use the CDN path, but also accept custom paths for each tool
-			if(!tool.urlPrefix)
-				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.tool}/${tool.version}`;
 
-			// In most cases, the program is the same as the tool name, but there are exceptions. For example, for the
-			// tool "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
-			if(!tool.program)
-				tool.program = tool.tool;
+		const baseModule = aioli.tools[0];
+		await this._setup(baseModule, true);
 
-			// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
-			// load the right version of the .wasm binaries based on what is supported by the user's browser.
-			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
-			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
-				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
-				tool.program += "-nosimd";
-			}
-			if(toolConfig["wasm-features"]?.includes("threads") && !await threads()) {
-				console.warn(`[biowasm] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
-				tool.program += "-nothreads";
-			}
-		}));
+		// The base module has the main filesystem, which other tools will mount
+		baseModule.module.FS.mkdir(aioli.config.dirData, 0o777);
+		baseModule.module.FS.mkdir(aioli.config.dirMounted, 0o777);
+		baseModule.module.FS.chdir(aioli.config.dirData);
+		aioli.fs = baseModule.module.FS;
 
 		// ---------------------------------------------------------------------
-		// Initialize each tool
+		// Set up all other modules
 		// ---------------------------------------------------------------------
-		for(let tool of aioli.tools)
-		{
-			// -----------------------------------------------------------------
-			// Import the WebAssembly module
-			// -----------------------------------------------------------------
-			// All biowasm modules export the variable "Module" so assign it
-			self.importScripts(`${tool.urlPrefix}/${tool.program}.js`);
-			// Initialize the Emscripten module and pass along settings to overwrite
-			tool.module = await Module({
-				// By default, tool name is hardcoded as "./this.program"
-				thisProgram: tool.program,
 
-				// Used by Emscripten to find path to .wasm / .data files
-				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
-
-				// Setup print functions to store stdout/stderr output
-				print: text => tool.stdout += `${text}\n`,
-				printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
-			});
-
-			// Initialize variables
-			tool.stdout = "";
-			tool.stderr = "";
-
-			// -----------------------------------------------------------------
-			// Setup shared virtual file system
-			// -----------------------------------------------------------------
-
-			// The base module has the main filesystem, which other tools will mount
-			const FS = tool.module.FS;
-			if(tool.tool == "base") {
-				// Create needed folders
-				FS.mkdir(aioli.config.dirData, 0o777);
-				FS.mkdir(aioli.config.dirMounted, 0o777);
-				// Set the working directory for convenience
-				FS.chdir(aioli.config.dirData);
-
-				// Track this filesystem so we don't need to do aioli.tools[0].module.FS every time
-				aioli.fs = FS;
-			} else {
-				// PROXYFS allows use to point "/shared" to the base module's filesystem "/"
-				FS.mkdir(aioli.config.dirShared);
-				FS.mount(tool.module.PROXYFS, {
-					root: "/",
-					fs: aioli.fs
-				}, aioli.config.dirShared);
-
-				// Set the working directory to be that mount folder for convenience
-				FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
-			}
-		}
+		// Initialize WebAssembly modules (downloads .wasm/.js/.json in parallel)
+		await Promise.all(aioli.tools.map(this._setup));
 
 		// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
 		// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
@@ -276,9 +216,84 @@ const aioli = {
 		return aioli._fileop("download", path);
 	},
 
-	// =========================================================================
-	// Internal utilities
-	// =========================================================================
+	// Initialize a tool
+	async _setup(tool, isBaseModule=false)
+	{
+		if(tool.ready)
+			return;
+
+		// -----------------------------------------------------------------
+		// Set default settings
+		// -----------------------------------------------------------------
+
+		// By default, use the CDN path, but also accept custom paths for each tool
+		if(!tool.urlPrefix)
+			tool.urlPrefix = `${aioli.config.urlCDN}/${tool.tool}/${tool.version}`;
+
+		// In most cases, the program is the same as the tool name, but there are exceptions. For example, for the
+		// tool "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
+		if(!tool.program)
+			tool.program = tool.tool;
+
+		// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
+		// load the right version of the .wasm binaries based on what is supported by the user's browser.
+		if(!isBaseModule) {
+			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
+			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
+				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
+				tool.program += "-nosimd";
+			}
+			if(toolConfig["wasm-features"]?.includes("threads") && !await threads()) {
+				console.warn(`[biowasm] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
+				tool.program += "-nothreads";
+			}
+		}
+
+		// -----------------------------------------------------------------
+		// Import the WebAssembly module
+		// -----------------------------------------------------------------
+
+		// All biowasm modules export the variable "Module" so assign it
+		self.importScripts(`${tool.urlPrefix}/${tool.program}.js`);
+
+		// Initialize the Emscripten module and pass along settings to overwrite
+		tool.module = await Module({
+			// By default, tool name is hardcoded as "./this.program"
+			thisProgram: tool.program,
+			// Used by Emscripten to find path to .wasm / .data files
+			locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
+			// Setup print functions to store stdout/stderr output
+			print: text => tool.stdout += `${text}\n`,
+			printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
+		});
+
+		// -----------------------------------------------------------------
+		// Setup shared virtual file system
+		// -----------------------------------------------------------------
+
+		if(!isBaseModule) {
+			// PROXYFS allows us to point "/shared" to the base module's filesystem "/"
+			const FS = tool.module.FS;
+			FS.mkdir(aioli.config.dirShared);
+			FS.mount(tool.module.PROXYFS, {
+				root: "/",
+				fs: aioli.fs
+			}, aioli.config.dirShared);
+
+			// Set the working directory to be that mount folder for convenience
+			FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
+		}
+
+		// -----------------------------------------------------------------
+		// Initialize variables
+		// -----------------------------------------------------------------
+
+		tool.stdout = "";
+		tool.stderr = "";
+		tool.ready = true;
+	},
+
+	// Common file operations
 	_fileop(operation, path) {
 		aioli._log(`Running ${operation} ${path}`);
 
@@ -308,6 +323,7 @@ const aioli = {
 		return false;
 	},
 
+	// Log if debug enabled
 	_log(message) {
 		if(!aioli.config.debug)
 			return;
