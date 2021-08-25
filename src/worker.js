@@ -56,14 +56,6 @@ const aioli = {
 		for(let tool of aioli.tools)
 		{
 			// -----------------------------------------------------------------
-			// Handle Stdout/stderr
-			// -----------------------------------------------------------------
-			let fnPrint = text => tool.stdout += `${text}\n`;
-			let fnPrintErr = text => tool.stderr += `${text}\n`;
-			if(aioli.config.printInterleaved)
-				fnPrintErr = text => tool.stdout += `${text}\n`;
-
-			// -----------------------------------------------------------------
 			// Import the WebAssembly module
 			// -----------------------------------------------------------------
 			// All biowasm modules export the variable "Module" so assign it
@@ -77,8 +69,8 @@ const aioli = {
 				locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
 
 				// Setup print functions to store stdout/stderr output
-				print: fnPrint,
-				printErr: fnPrintErr
+				print: text => tool.stdout += `${text}\n`,
+				printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
 			});
 
 			// Initialize variables
