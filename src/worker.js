@@ -25,36 +25,21 @@ const aioli = {
 			throw "Expecting at least 1 tool.";
 
 		// ---------------------------------------------------------------------
-		// Set default settings
+		// Set default settings for all tools (fetch config.json files in parallel)
 		// ---------------------------------------------------------------------
-		for(let tool of aioli.tools) {
+		await Promise.all(aioli.tools.map(async tool => {
 			// By default, use the CDN path, but also accept custom paths for each tool
 			if(!tool.urlPrefix)
 				tool.urlPrefix = `${aioli.config.urlCDN}/${tool.tool}/${tool.version}`;
+
 			// In most cases, the program is the same as the tool name, but there are exceptions. For example, for the
 			// tool "seq-align", program can be "needleman_wunsch", "smith_waterman", or "lcs".
 			if(!tool.program)
 				tool.program = tool.tool;
-		}
-
-		// ---------------------------------------------------------------------
-		// Load all tool configs (in parallel to speed up initialization time)
-		// ---------------------------------------------------------------------
-		const toolConfigsPromises = aioli.tools.map(tool => fetch(`${tool.urlPrefix}/config.json`));
-		const toolConfigsResponses = await Promise.all(toolConfigsPromises);
-		const toolConfigs = await Promise.all(toolConfigsResponses.map(response => response.json()));
-
-		// ---------------------------------------------------------------------
-		// Initialize each tool
-		// ---------------------------------------------------------------------
-		for(let i in aioli.tools)
-		{
-			const tool = aioli.tools[i];
-			aioli._log(`Loading ${tool.program} v${tool.version}`);
 
 			// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
 			// load the right version of the .wasm binaries based on what is supported by the user's browser.
-			const toolConfig = toolConfigs[i];
+			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
 			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
 				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
 				tool.program += "-nosimd";
@@ -63,7 +48,13 @@ const aioli = {
 				console.warn(`[biowasm] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
 				tool.program += "-nothreads";
 			}
+		}));
 
+		// ---------------------------------------------------------------------
+		// Initialize each tool
+		// ---------------------------------------------------------------------
+		for(let tool of aioli.tools)
+		{
 			// -----------------------------------------------------------------
 			// Handle Stdout/stderr
 			// -----------------------------------------------------------------
@@ -98,9 +89,9 @@ const aioli = {
 			// Setup shared virtual file system
 			// -----------------------------------------------------------------
 
-			// The first tool we initialize (i.e. base module) has the main filesystem, which other tools will mount
+			// The base module has the main filesystem, which other tools will mount
 			const FS = tool.module.FS;
-			if(i == 0) {
+			if(tool.tool == "base") {
 				// Create needed folders
 				FS.mkdir(aioli.config.dirData, 0o777);
 				FS.mkdir(aioli.config.dirMounted, 0o777);
