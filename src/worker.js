@@ -127,15 +127,18 @@ const aioli = {
 	// =========================================================================
 	// Execute a command
 	// =========================================================================
-	async exec(command)
+	async exec(command, args=null)
 	{
 		// Input validation
-		aioli._log(`Executing: %c${command}%c`, "color:darkblue; font-weight:bold");
+		aioli._log(`Executing %c${command}%c args=${args}`, "color:darkblue; font-weight:bold", "");
 		if(!command)
 			throw "Expecting a command";
 		// Extract tool name and arguments
-		const args = command.split(" ");
-		const toolName = args.shift();
+		let toolName = command;
+		if(args == null) {
+			args = command.split(" ");
+			toolName = args.shift();
+		}
 
 		// Does it match a program we've already initialized?
 		const tools = aioli.tools.filter(d => d.program == toolName);
