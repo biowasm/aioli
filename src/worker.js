@@ -45,6 +45,14 @@ const aioli = {
 		// ---------------------------------------------------------------------
 		// Set up all other modules
 		// ---------------------------------------------------------------------
+
+		// First module that isn't the base module can't be lazy-loaded. This is
+		// because we use the first module as the one where the main filesystem
+		// is mounted.
+		if(aioli.tools[1].loading == LOADING_LAZY)
+			aioli.tools[1].loading = LOADING_EAGER;
+
+		// Initialize modules
 		await this._initModules();
 		aioli._log("Ready");
 		return true;
@@ -209,7 +217,7 @@ const aioli = {
 	// Initialize a tool
 	async _setup(tool, isBaseModule=false)
 	{
-		if(tool.ready || tool.loading == LOADING_LAZY)
+		if(tool.ready)
 			return;
 
 		// -----------------------------------------------------------------
@@ -238,6 +246,10 @@ const aioli = {
 				tool.program += "-nothreads";
 			}
 		}
+
+		// If want lazy loading, don't go any further
+		if(tool.loading == LOADING_LAZY)
+			return;
 
 		// -----------------------------------------------------------------
 		// Import the WebAssembly module
