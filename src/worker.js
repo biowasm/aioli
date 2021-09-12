@@ -159,9 +159,9 @@ const aioli = {
 		const tools = aioli.tools.filter(t => {
 			let tmpToolName = toolName;
 			// Take special WebAssembly features into account
-			if(t.features.simd === false)
+			if(t?.features?.simd === false)
 				tmpToolName = `${tmpToolName}-nosimd`;
-			if(t.features.threads === false)
+			if(t?.features?.threads === false)
 				tmpToolName = `${tmpToolName}-nothreads`;
 			return t.program == tmpToolName;
 		});
@@ -243,8 +243,8 @@ const aioli = {
 
 		// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
 		// load the right version of the .wasm binaries based on what is supported by the user's browser.
-		tool.features = {};
-		if(!isBaseModule) {
+		if(!isBaseModule && !tool.features) {
+			tool.features = {};
 			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
 			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
 				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
