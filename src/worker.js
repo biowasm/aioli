@@ -150,7 +150,11 @@ const aioli = {
 		tool.stderr = "";
 
 		// Run command. Stdout/Stderr will be saved to "tool.stdout"/"tool.stderr" (see "print" and "printErr" above)
-		tool.module.callMain(args);
+		try {
+			tool.module.callMain(args);
+		} catch (error) {
+			console.error(error)
+		}
 
 		// Flush stdout/stderr to make sure we got everything. Otherwise, if use a command like 
 		// `bcftools query -f "%ALT" variants.bcf`, it won't output anything until the next
