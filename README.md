@@ -109,6 +109,7 @@ new Aioli({
     version: "2017.10.18",
     program: "smith_waterman",              // Optional: custom program to run within the tool; not needed for most tools (default=same as "tool" name)
     urlPrefix: "./path/to/wasm/files/",     // Optional: custom path to .js/.wasm files; for local biowasm development (default=biowasm CDN)
+    loading: "lazy",                        // Optional: if set to "lazy", only downloads WebAssembly modules when needed, instead of at initialization (default=eager)
 }, {
     urlAioli: "./path/to/aioli.worker.js",  // Optional: custom path to aioli.js and aioli.worker.js; for local Aioli development (default=biowasm CDN)
     printInterleaved: true,                 // Optional: whether `exec()` returns interleaved stdout/stderr; if false, returns object with stdout/stderr keys (default=true)
