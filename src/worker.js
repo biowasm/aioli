@@ -1,6 +1,9 @@
 import * as Comlink from "comlink";
 import { simd, threads } from "wasm-feature-detect";
 
+const LOADING_EAGER = "eager";
+const LOADING_LAZY = "lazy";
+
 const aioli = {
 	// Configuration
 	tools: [],   // Genomics tools that are available to use in this WebWorker
@@ -16,6 +19,7 @@ const aioli = {
 	// 			version: "1.10",                              // Required
 	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
 	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
+	// 			loading: "eager",                             // Optional, default="eager". Set to "lazy" to only load modules when they are used in exec()
 	// 		},
 	// =========================================================================
 	async init()
@@ -41,15 +45,18 @@ const aioli = {
 		// ---------------------------------------------------------------------
 		// Set up all other modules
 		// ---------------------------------------------------------------------
+		await this._initModules();
+		aioli._log("Ready");
+		return true;
+	},
 
+	// Initialize all modules that should be eager-loaded (i.e. not lazy-loaded)
+	async _initModules() {
 		// Initialize WebAssembly modules (downloads .wasm/.js/.json in parallel)
 		await Promise.all(aioli.tools.map(tool => this._setup(tool)));
 
 		// Setup filesystems so that tools can access each other's sample data
 		await this._setupFS();
-
-		aioli._log("Ready");
-		return true;
 	},
 
 	// =========================================================================
@@ -149,6 +156,13 @@ const aioli = {
 		tool.stdout = "";
 		tool.stderr = "";
 
+		// If this is a lazy-loaded module, load it now by setting it to eager loading.
+		// Note that calling _initModules will only load modules that haven't yet been loaded.
+		if(tool.loading == LOADING_LAZY) {
+			tool.loading = LOADING_EAGER;
+			await this._initModules();
+		}
+
 		// Run command. Stdout/Stderr will be saved to "tool.stdout"/"tool.stderr" (see "print" and "printErr" above)
 		try {
 			tool.module.callMain(args);
@@ -195,7 +209,7 @@ const aioli = {
 	// Initialize a tool
 	async _setup(tool, isBaseModule=false)
 	{
-		if(tool.ready)
+		if(tool.ready || tool.loading == LOADING_LAZY)
 			return;
 
 		// -----------------------------------------------------------------
@@ -277,14 +291,14 @@ const aioli = {
 		// other modules to also have access to those sample data files.
 		for(let i in aioli.tools)
 		{
-			// Skip base module
-			if(i == 0)
+			// Skip base module, and lazy-loaded modules
+			if(i == 0 || aioli.tools[i].loading == LOADING_LAZY)
 				continue;
 
 			for(let j in aioli.tools)
 			{
-				// Skip base module and self
-				if(j == 0 || i == j)
+				// Skip base module, self, and lazy-loaded modules
+				if(j == 0 || i == j || aioli.tools[j].loading == LOADING_LAZY)
 					continue;
 
 				const fsSrc = aioli.tools[i].module.FS;
