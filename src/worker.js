@@ -60,8 +60,10 @@ const aioli = {
 
 	// Initialize all modules that should be eager-loaded (i.e. not lazy-loaded)
 	async _initModules() {
+		// Initialize main tool first since rely on it for filesystem paths
+		await this._setup(aioli.tools[1]);
 		// Initialize WebAssembly modules (downloads .wasm/.js/.json in parallel)
-		await Promise.all(aioli.tools.map(tool => this._setup(tool)));
+		await Promise.all(aioli.tools.slice(2).map(tool => this._setup(tool)));
 
 		// Setup filesystems so that tools can access each other's sample data
 		await this._setupFS();
@@ -293,8 +295,15 @@ const aioli = {
 				fs: aioli.fs
 			}, aioli.config.dirShared);
 
-			// Set the working directory to be that mount folder for convenience
-			FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
+			// Set the working directory to be that mount folder for convenience if
+			// this is the first non-base module.
+			if(aioli.tools[1] == tool)
+				FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
+			// If it's not, we're initializing a new module, so we want it to be synced with
+			// the first non-base module (e.g. if lazy load 1 module, then cd, then load new
+			// module, must ensure both modules have the same working directory!)
+			else
+				FS.chdir(aioli.tools[1].module.FS.cwd());
 		}
 
 		// -----------------------------------------------------------------
