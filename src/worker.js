@@ -230,11 +230,7 @@ const aioli = {
 			// Ignore modules that haven't been initialized yet (i.e. lazy-loaded modules)
 			if(!module)
 				continue;
-			try {
-				aioli.tools[i].module.FS.chdir(path);
-			} catch (error) {
-				console.warn(error);
-			}			
+			aioli.tools[i].module.FS.chdir(path);
 		}
 	},
 
