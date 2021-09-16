@@ -234,7 +234,15 @@ const aioli = {
 		}
 	},
 
+	mkdir(path) {
+		aioli.tools[1].module.FS.mkdir(path);
+		return true;
+	},
+
+	// =========================================================================
 	// Initialize a tool
+	// =========================================================================
+
 	async _setup(tool, isBaseModule=false)
 	{
 		if(tool.ready)
@@ -362,6 +370,10 @@ const aioli = {
 			}
 		}
 	},
+
+	// =========================================================================
+	// Utilities
+	// =========================================================================
 
 	// Common file operations
 	_fileop(operation, path) {
