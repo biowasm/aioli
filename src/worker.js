@@ -224,6 +224,20 @@ const aioli = {
 		return aioli._fileop("download", path);
 	},
 
+	cd(path) {
+		try {
+			for(let i = 1; i < aioli.tools.length; i++) {
+				const module = aioli.tools[i].module;
+				// Ignore modules that haven't been initialized yet (i.e. lazy-loaded modules)
+				if(!module)
+					continue;
+				aioli.tools[i].module.FS.chdir(path);
+			}
+		} catch (error) {
+			console.warn(error);
+		}
+	},
+
 	// Initialize a tool
 	async _setup(tool, isBaseModule=false)
 	{
