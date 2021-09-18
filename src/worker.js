@@ -248,6 +248,9 @@ const aioli = {
 		if(tool.ready)
 			return;
 
+		// Save original config in case need them to reinitialize (use Object.assign to avoid ref changes)
+		tool.config = Object.assign({}, tool);
+
 		// -----------------------------------------------------------------
 		// Set default settings
 		// -----------------------------------------------------------------
