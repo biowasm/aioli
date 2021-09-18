@@ -200,17 +200,20 @@ const aioli = {
 		tool.module.FS.streams[1] = tool.module.FS.open("/dev/stdout", "w");
 		tool.module.FS.streams[2] = tool.module.FS.open("/dev/stderr", "w");
 
-		let result = { stdout: tool.stdout, stderr: tool.stderr };
 		// Return output, either stdout/stderr interleaved, or each one separately
+		let result = { stdout: tool.stdout, stderr: tool.stderr };
 		if(aioli.config.printInterleaved)
 			result = tool.stdout;
 
 		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
+			// Save working directory so we can return to it after reinitialization
+			const pwd = tool.module.FS.cwd();
+			// Reset config
 			Object.assign(tool, tool.config);
 			tool.ready = false;
-			const pwd = tool.module.FS.cwd();
+			// Reinitialize module + setup FS
 			await this._setup(tool);
 			await this._setupFS();
 			await this.cd(pwd);
