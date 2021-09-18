@@ -20,6 +20,7 @@ const aioli = {
 	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
 	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
 	// 			loading: "eager",                             // Optional, default="eager". Set to "lazy" to only load modules when they are used in exec()
+	// 			reinit: false,                                // Optional, default="false". Set to "true" to reinitialize a module after each invocation
 	// 		},
 	// =========================================================================
 	async init()
@@ -199,14 +200,23 @@ const aioli = {
 		tool.module.FS.streams[1] = tool.module.FS.open("/dev/stdout", "w");
 		tool.module.FS.streams[2] = tool.module.FS.open("/dev/stderr", "w");
 
+		let result = { stdout: tool.stdout, stderr: tool.stderr };
 		// Return output, either stdout/stderr interleaved, or each one separately
 		if(aioli.config.printInterleaved)
-			return tool.stdout;
+			result = tool.stdout;
 
-		return {
-			stdout: tool.stdout,
-			stderr: tool.stderr
-		};
+		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
+		// second time the `main()` function is called.
+		if(tool.reinit === true) {
+			Object.assign(tool, tool.config);
+			tool.ready = false;
+			const pwd = tool.module.FS.cwd();
+			await this._setup(tool);
+			await this._setupFS();
+			await this.cd(pwd);
+		}
+
+		return result;
 	},
 
 	// =========================================================================
