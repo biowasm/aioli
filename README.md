@@ -2,35 +2,44 @@
 
 [![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli)
 
-Aioli is a library for running genomics command-line tools in the browser using WebAssembly. The WebAssembly modules are obtained from the [biowasm](https://github.com/biowasm/biowasm) CDN.
+Aioli is a library for running genomics command-line tools in the browser using WebAssembly.
+
+The WebAssembly modules are hosted on the [biowasm](https://github.com/biowasm/biowasm) CDN.
 
 
 ## Getting Started
 
+Check out [biowasm.com](https://biowasm.com/) for a REPL environment.
+
 ### A simple example
 
-Running the genomics tool `samtools` on a small file:
+Running `samtools` in the browser:
 
 ```html
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
 <script type="module">
-// Note that we use `script type="module"` so we can use top-level await statements
+// Initialize Aioli with samtools v1.10
 const CLI = await new Aioli("samtools/1.10");
-const output = await CLI.exec("samtools view -q 20 /samtools/examples/toy.sam");
+
+// Show reads from toy.sam with flag "16". Try replacing "-f 16" with "-f 0".
+const output = await CLI.exec("samtools view -f 16 /samtools/examples/toy.sam");
 console.log(output);
 </script>
 ```
 
+Note: you can simply copy-paste the code above into a text editor, save it as a `.html` file and load it in your browser with no setup!
+
 ### Load multiple tools
 
-Aioli supports running multiple bioinformatics tools at once:
+Aioli supports running multiple tools at once:
 
 ```html
 <script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
 <script type="module">
+// Note: `script type="module"` lets us use top-level await statements
 const CLI = await new Aioli(["samtools/1.10", "seqtk/1.2"]);
 
-// Here we write to a file with one tool, and use it as input for another tool.
+// Here we write to a file with one tool, and use it as input for another tool!
 // Convert a ".sam" file to a ".fastq", and save the result to "./toy.fastq"
 let output = await CLI.exec("samtools fastq -o toy.fastq /samtools/examples/toy.sam");
 
@@ -40,9 +49,9 @@ console.log(output);
 </script>
 ```
 
-### Working with user files
+### Working with user-provided files
 
-We can update the previous example to run `samtools` on a file provided by the user:
+Here we ask the user to provide a local file and we run `samtools` on it:
 
 ```html
 <input id="myfile" type="file" multiple>
@@ -74,6 +83,55 @@ document.getElementById("myfile").addEventListener("change", runSamtools, false)
 </script>
 ```
 
+### Working with large remote files
+
+You can even mount URLs (as long as they are [CORS-enabled](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)):
+
+```html
+<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
+<script type="module">
+const CLI = await new Aioli("samtools/1.10");
+
+// Mount a .bam and .bai from the 1000 Genomes Project. This lazy-mounts the URLs
+// on the virtual file system, i.e. no data is downloaded yet.
+const paths = await CLI.mount([
+    "https://1000genomes.s3.amazonaws.com/phase3/data/NA12878/alignment/NA12878.chrom20.ILLUMINA.bwa.CEU.low_coverage.20121211.bam",
+    "https://1000genomes.s3.amazonaws.com/phase3/data/NA12878/alignment/NA12878.chrom20.ILLUMINA.bwa.CEU.low_coverage.20121211.bam.bai"
+]);
+
+// Since the .bai index file is present, samtools only downloads a subset of the .bam!
+// Check the "Network" tab in the developer console to confirm that.
+const output = await CLI.exec(`samtools view ${paths[0]} 20:39,352,829-39,352,842`);
+console.log(output);
+</script>
+```
+
+
+### Useful functions
+
+```javascript
+// List files in a given directory on the virtual file system
+await CLI.ls("/some/path");
+
+// Convert a file on the virtual file system to a Blob object, and returns a URL so it can be downloaded by the user
+const url = await CLI.download("/path/to/a/file");
+```
+
+
+### Using Aioli with npm
+
+Instead of using `<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>`, you can install Aioli using `npm`:
+
+```bash
+npm install --save "@biowasm/aioli"
+```
+
+Then you can import Aioli as follows:
+
+```js
+import Aioli from "@biowasm/aioli";
+```
+
 
 ## Aioli Configuration
 
@@ -98,6 +156,7 @@ new Aioli("seqtk/seqtk/1.2");  // seqtk/1.2 == seqtk/seqtk/1.2
 new Aioli("seq-align/smith_waterman/2017.10.18");
 new Aioli("seq-align/needleman_wunsch/2017.10.18");
 ```
+
 
 ### Advanced
 
