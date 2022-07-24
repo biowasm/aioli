@@ -1,4 +1,3 @@
-import pkg from "../package.json";
 import { wrap } from "comlink";
 import AioliWorker from "./worker?worker&inline";
 
@@ -54,7 +53,8 @@ export default class Aioli
 		// Add biowasm base module to list of tools to initialize (need this for the shared virtual filesystem)
 		tools = [{
 			tool: "base",
-			version: pkg.version,
+			// FIXME:
+			version: "2.4.0",  // pkg.version, // import pkg from "../package.json";
 			urlPrefix: config.urlBaseModule
 		}, ...tools];
 
