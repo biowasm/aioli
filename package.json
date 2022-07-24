@@ -8,6 +8,9 @@
   },
   "author": "Robert Aboukhalil",
   "license": "MIT",
+  "files": ["dist"],
+  "main": "./dist/aioli.js",
+  "module": "./dist/aioli.mjs",
   "dependencies": {
     "comlink": "^4.3.1",
     "wasm-feature-detect": "^1.2.11"
