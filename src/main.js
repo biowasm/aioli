@@ -1,13 +1,12 @@
 import pkg from "../package.json";
-import * as Comlink from "comlink";
+import { wrap } from "comlink";
+import AioliWorker from "./worker?worker&inline";
 
 // Constants
 const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
-	// Get the Worker code corresponding to the current Aioli version
-	urlAioli: `${URL_CDN_ROOT}/aioli/${pkg.version}/aioli.worker.js`,
 	// Where we can find the base biowasm module (only modify this for local development)
 	urlBaseModule: null,
 
@@ -50,7 +49,6 @@ export default class Aioli
 		// If testing with different environment e.g. cdn-stg.biowasm.com
 		if(config.env != "prd") {
 			config.urlCDN = config.urlCDN.replace("cdn", `cdn-${config.env}`);
-			config.urlAioli = config.urlAioli.replace("cdn", `cdn-${config.env}`);
 		}
 
 		// Add biowasm base module to list of tools to initialize (need this for the shared virtual filesystem)
@@ -74,14 +72,9 @@ export default class Aioli
 
 	// Initialize the WebWorker and the WebAssembly modules within it
 	async init() {
-		// Note: We can only create a WebWorker using a URL that has the same origin as the app running it, i.e. we
-		// can't do `new Worker("https://cdn.biowasm.com/v2/...")`, so instead we need to fetch the contents of that
-		// URL first, and then create the WebWorker. See <https://stackoverflow.com/a/60015898>.
-		const moduleJS = await (await fetch(this.config.urlAioli)).text();
-		const moduleBlob = new Blob([moduleJS], { type: "application/javascript" });
-
 		// Create the WebWorker
-		const worker = new Worker(URL.createObjectURL(moduleBlob));
+		const worker = new AioliWorker();
+
 		// Listen for "biowasm" messages from the WebWorker
 		if(this.callback)
 			worker.onmessage = e => {
@@ -89,7 +82,7 @@ export default class Aioli
 					this.callback(e.data.value);
 			}
 
-		const aioli = Comlink.wrap(worker);
+		const aioli = wrap(worker);
 		aioli.tools = this.tools;
 		aioli.config = this.config;
 

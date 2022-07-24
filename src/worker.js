@@ -1,4 +1,4 @@
-import * as Comlink from "comlink";
+import { expose } from "comlink";
 import { simd, threads } from "wasm-feature-detect";
 
 const LOADING_EAGER = "eager";
@@ -433,4 +433,4 @@ const aioli = {
 	}
 };
 
-Comlink.expose(aioli);
+expose(aioli);
