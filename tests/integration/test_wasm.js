@@ -10,7 +10,6 @@ describe("Running WebAssembly modules", () => {
 				urlPrefix: "http://localhost:11111/tests/data/samtools",
 			}
 		], {
-			urlAioli: "http://localhost:11111/dist/aioli.worker.js",
 			urlBaseModule: "http://localhost:11111/tests/data/base",
 			debug: true
 		});
