@@ -26,7 +26,7 @@ const aioli = {
 	// 			tool: "samtools",                             // Required
 	// 			version: "1.10",                              // Required
 	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
-	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
+	// 			urlPrefix: "https://cdn.biowasm.com/v3/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
 	// 			loading: "eager",                             // Optional, default="eager". Set to "lazy" to only load modules when they are used in exec()
 	// 			reinit: false,                                // Optional, default="false". Set to "true" to reinitialize a module after each invocation
 	// 		},

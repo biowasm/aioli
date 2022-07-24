@@ -16,7 +16,7 @@ Check out [biowasm.com](https://biowasm.com/) for a REPL environment.
 Running `samtools` in the browser:
 
 ```html
-<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
+<script src="https://cdn.biowasm.com/v3/aioli/latest/aioli.js"></script>
 <script type="module">
 // Initialize Aioli with samtools v1.10
 const CLI = await new Aioli("samtools/1.10");
@@ -34,7 +34,7 @@ Note: you can simply copy-paste the code above into a text editor, save it as a 
 Aioli supports running multiple tools at once:
 
 ```html
-<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
+<script src="https://cdn.biowasm.com/v3/aioli/latest/aioli.js"></script>
 <script type="module">
 // Note: `script type="module"` lets us use top-level await statements
 const CLI = await new Aioli(["samtools/1.10", "seqtk/1.2"]);
@@ -56,7 +56,7 @@ Here we ask the user to provide a local file and we run `samtools` on it:
 ```html
 <input id="myfile" type="file" multiple>
 
-<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
+<script src="https://cdn.biowasm.com/v3/aioli/latest/aioli.js"></script>
 <script type="module">
 const CLI = await new Aioli("samtools/1.10");
 const output = await CLI.exec("samtools --version-only");
@@ -88,7 +88,7 @@ document.getElementById("myfile").addEventListener("change", runSamtools, false)
 You can even mount URLs (as long as they are [CORS-enabled](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)):
 
 ```html
-<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>
+<script src="https://cdn.biowasm.com/v3/aioli/latest/aioli.js"></script>
 <script type="module">
 const CLI = await new Aioli("samtools/1.10");
 
@@ -120,7 +120,7 @@ const url = await CLI.download("/path/to/a/file");
 
 ### Using Aioli with npm
 
-Instead of using `<script src="https://cdn.biowasm.com/v2/aioli/latest/aioli.js"></script>`, you can install Aioli using `npm`:
+Instead of using `<script src="https://cdn.biowasm.com/v3/aioli/latest/aioli.js"></script>`, you can install Aioli using `npm`:
 
 ```bash
 npm install --save "@biowasm/aioli"
@@ -131,6 +131,8 @@ Then you can import Aioli as follows:
 ```js
 import Aioli from "@biowasm/aioli";
 ```
+
+Note that even if you import Aioli locally, the WebAssembly modules will still be downloaded from the biowasm CDN unless you download those assets locally and specify their path using `urlPrefix`—see [the Advanced section](#Advanced) for details
 
 
 ## Aioli Configuration
@@ -163,13 +165,13 @@ new Aioli("seq-align/needleman_wunsch/2017.10.18");
 By default, Aioli retrieves the `.wasm` modules and the Aioli WebWorker code from the biowasm CDN for convenience, but you can also load files from local sources. There are also additional configuration options you can pass along:
 
 ```javascript
-new Aioli({
+new Aioli([{
     tool: "seq-align",
     version: "2017.10.18",
     program: "smith_waterman",              // Optional: custom program to run within the tool; not needed for most tools (default=same as "tool" name)
     urlPrefix: "./path/to/wasm/files/",     // Optional: custom path to .js/.wasm files; for local biowasm development (default=biowasm CDN)
     loading: "lazy",                        // Optional: if set to "lazy", only downloads WebAssembly modules when needed, instead of at initialization (default=eager)
-}, {
+}], {
     printInterleaved: true,                 // Optional: whether `exec()` returns interleaved stdout/stderr; if false, returns object with stdout/stderr keys (default=true)
     debug: false,                           // Optional: set to true to see console log messages for debugging (default=false)
 });

@@ -2,7 +2,7 @@ import { wrap } from "comlink";
 import AioliWorker from "./worker?worker&inline";
 
 // Constants
-const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";
+const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";  // FIXME: v3
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
@@ -53,8 +53,7 @@ export default class Aioli
 		// Add biowasm base module to list of tools to initialize (need this for the shared virtual filesystem)
 		tools = [{
 			tool: "base",
-			// FIXME:
-			version: "2.4.0",  // pkg.version, // import pkg from "../package.json";
+			version: "2.4.0",  // FIXME: pkg.version, // import pkg from "../package.json";
 			urlPrefix: config.urlBaseModule
 		}, ...tools];
 
