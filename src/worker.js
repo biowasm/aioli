@@ -1,8 +1,16 @@
 import { expose } from "comlink";
-import { simd, threads } from "wasm-feature-detect";
+import { simd } from "wasm-feature-detect";
 
 const LOADING_EAGER = "eager";
 const LOADING_LAZY = "lazy";
+
+// Hardcode wasm features to avoid downloading a "config.json" for every tool.
+// As a result, adding a SIMD package to biowasm requires updating Aioli, but
+// there are very few packages that will require that.
+const WASM_FEATURES = {
+	"ssw": ["simd"],
+	"minimap2": ["simd"]
+};
 
 const aioli = {
 	// Configuration
@@ -164,8 +172,6 @@ const aioli = {
 			// Take special WebAssembly features into account
 			if(t?.features?.simd === false)
 				tmpToolName = `${tmpToolName}-nosimd`;
-			if(t?.features?.threads === false)
-				tmpToolName = `${tmpToolName}-nothreads`;
 			return t.program == tmpToolName;
 		});
 		if(tools.length == 0)
@@ -277,20 +283,14 @@ const aioli = {
 		if(!tool.program)
 			tool.program = tool.tool;
 
-		// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
-		// load the right version of the .wasm binaries based on what is supported by the user's browser.
+		// SIMD isn't enabled on all browsers. Load the right .wasm file based on the user's browser
 		if(!isBaseModule && !tool.features) {
 			tool.features = {};
-			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
-			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
-				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
+			const wasmFeatures = WASM_FEATURES[tool.program] || [];
+			if(wasmFeatures.includes("simd") && !await simd()) {
+				aioli._log(`SIMD is not supported in this browser. Loading non-SIMD version of ${tool.program}.`);
 				tool.program += "-nosimd";
 				tool.features.simd = false;
-			}
-			if(toolConfig["wasm-features"]?.includes("threads") && !await threads()) {
-				console.warn(`[biowasm] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
-				tool.program += "-nothreads";
-				tool.features.threads = false;
 			}
 		}
 

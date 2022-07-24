@@ -2,7 +2,6 @@
   "name": "@biowasm/aioli",
   "version": "3.0.0",
   "description": "A framework for building WebAssembly-based genomics tools",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/biowasm/aioli.git"
