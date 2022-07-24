@@ -170,8 +170,8 @@ const aioli = {
 		const tools = aioli.tools.filter(t => {
 			let tmpToolName = toolName;
 			// Take special WebAssembly features into account
-			if(t?.features?.simd === false)
-				tmpToolName = `${tmpToolName}-nosimd`;
+			if(t?.features?.simd === true)
+				tmpToolName = `${tmpToolName}-simd`;
 			return t.program == tmpToolName;
 		});
 		if(tools.length == 0)
@@ -287,10 +287,10 @@ const aioli = {
 		if(!isBaseModule && !tool.features) {
 			tool.features = {};
 			const wasmFeatures = WASM_FEATURES[tool.program] || [];
-			if(wasmFeatures.includes("simd") && !await simd()) {
+			if(wasmFeatures.includes("simd") && await simd()) {
 				aioli._log(`SIMD is not supported in this browser. Loading non-SIMD version of ${tool.program}.`);
-				tool.program += "-nosimd";
-				tool.features.simd = false;
+				tool.program += "-simd";
+				tool.features.simd = true;
 			}
 		}
 
