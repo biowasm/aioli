@@ -1,14 +1,15 @@
 import Aioli from "../dist/aioli.mjs";
 
 // Initialize Aioli with samtools and seqtk
-const CLI = await new Aioli(["samtools/1.10", "seqtk/1.3"]);
+const CLI = await new Aioli(["samtools/1.10", "seqtk/1.3", "bedtools/2.29.2"], { debug: true });
+console.log("ls /shared", await CLI.ls("/shared/"))
+console.log("ls /shared/data/", await CLI.ls("/shared/data/"))
 
-// Show reads from toy.sam
-const file = "/samtools/examples/toy.sam";
-const output = await CLI.exec(`samtools view -h ${file}`);
+// Convert SAM to FASTQ
+const output = await CLI.exec("samtools fastq -0 toy.fastq -o toy.fastq /shared/samtools/examples/toy.sam");
 document.getElementById("output-samtools").innerHTML = output;
+console.log("ls /shared/data/", await CLI.ls("/shared/data/"))
 
-// Show reads from toy.sam with flag "16"
-await CLI.fs.writeFile("test.fa", ">chr1\nACGTACGACTAGCAG\n>chr2\nACGATCATACCAGCA");
-const output2 = await CLI.exec("seqtk comp test.fa");
+// Run seqtk on output of samtools
+const output2 = await CLI.exec("seqtk fqchk toy.fastq");
 document.getElementById("output-seqtk").innerHTML = output2;
