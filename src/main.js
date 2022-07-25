@@ -6,8 +6,6 @@ const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";  // FIXME: v3
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
-	// Where we can find the base biowasm module (only modify this for local development)
-	urlBaseModule: null,
 
 	// Folder to use for mounting the shared filesystem
 	dirShared: "/shared",
@@ -49,13 +47,6 @@ export default class Aioli
 		if(config.env != "prd") {
 			config.urlCDN = config.urlCDN.replace("cdn", `cdn-${config.env}`);
 		}
-
-		// Add biowasm base module to list of tools to initialize (need this for the shared virtual filesystem)
-		tools = [{
-			tool: "base",
-			version: "2.4.0",  // FIXME: pkg.version, // import pkg from "../package.json";
-			urlPrefix: config.urlBaseModule
-		}, ...tools];
 
 		// Set state
 		this.tools = tools;
