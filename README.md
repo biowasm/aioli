@@ -1,25 +1,22 @@
-## Tools using Aioli
-
-See [Tools using biowasm](https://github.com/biowasm/biowasm#tools-using-biowasm)
-
-
 # Aioli
 
 [![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli)
 
 Aioli is a library for running genomics command-line tools in the browser using WebAssembly.
 
-The WebAssembly modules are hosted on the [biowasm](https://github.com/biowasm/biowasm) CDN.
+## Getting Started
 
-Check out [biowasm.com](https://biowasm.com/) for a REPL environment.
+1. Visit [biowasm.com](https://biowasm.com/) to see how you can start using Aioli with just a few lines of code.
+2. Check out our [Getting Started](#getting-started---with-the-cdn) guide below.
 
+## Who uses Aioli?
 
-## Contents
-
-* [Getting Started - With the CDN](#getting-started---with-the-cdn)
-* [Getting Started - Without the CDN](#getting-started---without-the-cdn)
-* [Aioli Configuration](#aioli-configuration)
-* [Development](#development)
+| Tool | Why Aioli? |
+|-|-|
+| [sandbox.bio](https://sandbox.bio) | Run command-line tools in the browser to power interactive tutorials |
+| [bedqc](https://quinlan-lab.github.io/bedqc) ([repo](https://github.com/quinlan-lab/bedqc)) | Run `bedtools` in the browser to validate BED files |
+| [Ribbon](https://genomeribbon.com) ([repo](https://github.com/MariaNattestad/Ribbon)) | Run `samtools` in the browser to parse, estimate coverage and subsample BAM files |
+| [fastq.bio](https://www.fastq.bio) ([repo](https://github.com/robertaboukhalil/fastq.bio)) | Run `fastp` in the browser to evaluate sequencing data quality |
 
 ---
 
@@ -153,9 +150,10 @@ import Aioli from "@biowasm/aioli";
 
 Note that even if you import Aioli locally with `npm`, the WebAssembly modules will still be downloaded from the biowasm CDN unless you download those assets locally and specify their path using `urlPrefix`:
 
-# FIXME: Which files to download (script?)
-# FIXME: How to set path/to/wasm
+    # FIXME: Which files to download (script?)
+    # FIXME: How to set path/to/wasm
 
+---
 
 ## Aioli Configuration
 
