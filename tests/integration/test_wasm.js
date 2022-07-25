@@ -21,8 +21,7 @@ const TOOLS = [
 ];
 
 describe("Running WebAssembly modules", () => {
-	// Test that we can successfully initialize samtools, run an ls command, and that we can call main()
-	it("Run samtools commands", async () => {
+	it("Run commands", async () => {
 		const CLI = await new Aioli(TOOLS, { debug: true });
 
 		// Only eager-loaded modules should be initialized now
@@ -73,8 +72,7 @@ describe("Running WebAssembly modules", () => {
 		// seqtk: Run comp on relative folder path
 		await CLI.cd("/shared/samtools");
 		const seqtkCompObserved2 = await CLI.exec("seqtk comp examples/toy.fa");
-		const seqtkCompExpected2 = `ref\t45\t13\t8\t13\t11\t0\t0\t0\t2\t0\t0\t0\nref2\t40\t16\t7\t7\t10\t0\t0\t0\t4\t0\t0\t0\n`;
-		expect(seqtkCompObserved2).to.equal(seqtkCompExpected2);
+		expect(seqtkCompObserved2).to.equal(seqtkCompExpected);
 
 		// samtools: Run samtools on relative folder path
 		const samtoolsViewObserved = await CLI.exec("samtools view examples/toy.sam");
