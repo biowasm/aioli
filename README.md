@@ -2,21 +2,14 @@
 
 [![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli)
 
-Aioli is a library for running genomics command-line tools in the browser using WebAssembly.
+Aioli is a library for running genomics command-line tools in the browser using WebAssembly. See [Who uses biowasm](https://github.com/biowasm/biowasm#who-uses-biowasm) for example use cases.
 
-## Getting Started
+## Contents
 
-1. Visit [biowasm.com](https://biowasm.com/) to see how you can start using Aioli with just a few lines of code.
-2. Check out our [Getting Started](#getting-started---with-the-cdn) guide below.
-
-## Who uses Aioli?
-
-| Tool | Why Aioli? |
-|-|-|
-| [sandbox.bio](https://sandbox.bio) | Run command-line tools in the browser to power interactive tutorials |
-| [bedqc](https://quinlan-lab.github.io/bedqc) ([repo](https://github.com/quinlan-lab/bedqc)) | Run `bedtools` in the browser to validate BED files |
-| [Ribbon](https://genomeribbon.com) ([repo](https://github.com/MariaNattestad/Ribbon)) | Run `samtools` in the browser to parse, estimate coverage and subsample BAM files |
-| [fastq.bio](https://www.fastq.bio) ([repo](https://github.com/robertaboukhalil/fastq.bio)) | Run `fastp` in the browser to evaluate sequencing data quality |
+* [Getting Started - With the CDN](#getting-started---with-the-cdn)
+* [Getting Started - Without the CDN](#getting-started---without-the-cdn)
+* [Aioli Configuration](#aioli-configuration)
+* [Development](#development)
 
 ---
 
