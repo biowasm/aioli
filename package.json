@@ -24,7 +24,7 @@
   "scripts": {
     "dev": "vite build --sourcemap true --minify false && vite",
     "build": "vite build",
-    "test": "cypress run",
-    "test-open": "cypress open"
+    "test": "vite build && cypress run",
+    "test-open": "vite build && cypress open"
   }
 }
