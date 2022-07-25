@@ -46,7 +46,10 @@ const aioli = {
 
 		// First module can't be lazy-loaded because that's where the main filesystem is mounted
 		aioli.base = aioli.tools[0];
-		aioli.base.loading = LOADING_EAGER;
+		if(aioli.base.loading !== LOADING_EAGER) {
+			aioli._log(`Setting ${aioli.base.tool} to eager loading. First module cannot be lazy loaded because that's where the main filesystem is mounted.`);
+			aioli.base.loading = LOADING_EAGER;
+		}
 		await this._setup(aioli.base);
 		aioli.fs = aioli.base.module.FS;
 
@@ -345,18 +348,23 @@ const aioli = {
 		// Mount every tool's sample data onto the base module (including base module's own sample data)
 		const fsDst = aioli.fs;
 		for(let tool of aioli.tools) {
-			const fsSrc = tool.module.FS;
-			const pathSrc = `/${tool.tool}`;
-			const pathDest = `${aioli.config.dirShared}${pathSrc}`;
-			if(!fsSrc.analyzePath(pathSrc).exists)
+			// Ignore lazy-loaded modules that haven't been initialized yet
+			if(!tool.ready)
 				continue;
 
-			aioli._log(`Mounting ${pathSrc} onto ${aioli.base.tool} filesystem at ${pathDest}`);
-			fsDst.mkdir(pathDest);
+			// Skip if the source path doesn't exist or if the destination path has already been created
+			const fsSrc = tool.module.FS;
+			const pathSrc = `/${tool.tool}`;
+			const pathDst = `${aioli.config.dirShared}${pathSrc}`;
+			if(!fsSrc.analyzePath(pathSrc).exists || fsDst.analyzePath(pathDst).exists)
+				continue;
+
+			aioli._log(`Mounting ${pathSrc} onto ${aioli.base.tool} filesystem at ${pathDst}`);
+			fsDst.mkdir(pathDst);
 			fsDst.mount(aioli.base.module.PROXYFS, {
 				root: pathSrc,
 				fs: fsSrc
-			}, pathDest);
+			}, pathDst);
 		}
 	},
 
