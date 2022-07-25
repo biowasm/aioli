@@ -1,30 +1,50 @@
 import Aioli from "../../dist/aioli.js";
 
+const TOOLS = [
+	{
+		tool: "samtools",
+		version: "1.10",
+		urlPrefix: "http://localhost:11111/tests/data/samtools",
+		loading: "lazy"
+	},
+	{
+		tool: "seqtk",
+		version: "1.3",
+		urlPrefix: "http://localhost:11111/tests/data/seqtk",
+	},
+	{
+		tool: "bedtools",
+		version: "2.29.2",
+		urlPrefix: "http://localhost:11111/tests/data/bedtools",
+		loading: "lazy"
+	}
+];
+
 describe("Running WebAssembly modules", () => {
 	// Test that we can successfully initialize samtools, run an ls command, and that we can call main()
 	it("Run samtools commands", async () => {
-		const CLI = await new Aioli([
-			{
-				tool: "samtools",
-				version: "1.10",
-				urlPrefix: "http://localhost:11111/tests/data/samtools",
-			},
-			{
-				tool: "seqtk",
-				version: "1.3",
-				urlPrefix: "http://localhost:11111/tests/data/seqtk",
-			},
-			{
-				tool: "bedtools",
-				version: "2.29.2",
-				urlPrefix: "http://localhost:11111/tests/data/bedtools",
-			}
-		], { debug: true });
+		const CLI = await new Aioli(TOOLS, { debug: true });
+
+		// Only eager-loaded modules should be initialized now
+		await TOOLS.forEach(async (tool, i) => {
+			const isLoadedObserved = await CLI.tools[i].ready;
+			const isLoadedExpected = tool.loading === "lazy" && i !== 0 ? undefined : true;
+			expect(isLoadedObserved).to.equal(isLoadedExpected);
+		});
 
 		// Expect "samtools" preloaded folder to be there, along with "shared", which is where the shared filesystem lives
 		const lsObserved = (await CLI.ls("/shared")).join(",");
-		const lsExpected = [".", "..", "data", "mnt", "samtools", "bedtools"].join(",");
+		const lsExpected = [".", "..", "data", "mnt", "samtools"].join(",");
 		expect(lsObserved).to.equal(lsExpected);
+
+		// Expect bedtools folder to show up after bedtools is initialized
+		const bedtoolsObserved = await CLI.exec("bedtools --version");
+		const bedtoolsExpected = `bedtools v2.29.2\n`;
+		expect(bedtoolsObserved).to.equal(bedtoolsExpected);
+
+		const lsObserved2 = (await CLI.ls("/shared")).join(",");
+		const lsExpected2 = lsExpected + ",bedtools";
+		expect(lsObserved2).to.equal(lsExpected2);
 
 		// Run a simple command
 		const versionObserved = await CLI.exec("samtools --version-only");
