@@ -1,7 +1,11 @@
 import Aioli from "../dist/aioli.mjs";
 
 // Initialize Aioli with samtools and seqtk
-const CLI = await new Aioli(["samtools/1.10", "seqtk/1.3", "bedtools/2.29.2"], { debug: true });
+const CLI = await new Aioli(["samtools/1.10", "seqtk/1.3", {
+	tool: "bedtools",
+	version: "2.29.2",
+	loading: "lazy"
+}], { debug: true });
 console.log("ls /shared", await CLI.ls("/shared/"))
 console.log("ls /shared/data/", await CLI.ls("/shared/data/"))
 
