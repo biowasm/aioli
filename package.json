@@ -8,7 +8,9 @@
   },
   "author": "Robert Aboukhalil",
   "license": "MIT",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/aioli.js",
   "module": "./dist/aioli.mjs",
   "dependencies": {
@@ -20,7 +22,7 @@
     "vite": "^3.0.2"
   },
   "scripts": {
-    "dev": "vite --force & vite build --watch --force & wait",
+    "dev": "vite build --sourcemap true --minify false && vite",
     "build": "vite build",
     "test": "cypress run",
     "test-open": "cypress open"
