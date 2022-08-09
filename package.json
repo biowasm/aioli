@@ -4,7 +4,7 @@
   "description": "A framework for building WebAssembly-based genomics tools",
   "browser": "dist/aioli.js",
   "worker": "dist/aioli.worker.js",
-  "main": "aioli.js",
+  "main": "dist/aioli.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/biowasm/aioli.git"
