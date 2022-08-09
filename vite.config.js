@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { resolve } from "path";
 
 const BUILD_FILES = {
   es: "aioli.mjs",
@@ -11,7 +12,7 @@ export default defineConfig({
       name: "Aioli",
       formats: ["es", "umd"],
       fileName: format => BUILD_FILES[format],
-      entry: "src/main.js"
+      entry: resolve(__dirname, "src/main.js")
     }
   }
 });
