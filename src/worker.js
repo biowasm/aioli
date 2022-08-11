@@ -256,7 +256,17 @@ const aioli = {
 	},
 
 	// =========================================================================
+	// Stdin management: Use await CLI.stdin.set("some text") to set the stdin to be used when a tool is called
 	// =========================================================================
+	_stdinTxt: "",
+	_stdinPtr: 0,
+	stdin: {
+		clear: () => aioli.stdin.set(""),
+		set: txt => {
+			aioli._stdinTxt = txt;
+			aioli._stdinPtr = 0;
+		},
+	},
 
 	// =========================================================================
 	// Initialize a tool
@@ -309,6 +319,15 @@ const aioli = {
 			thisProgram: tool.program,
 			// Used by Emscripten to find path to .wasm / .data files
 			locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
+			// Custom stdin handling
+			stdin: () => {
+				if(aioli._stdinPtr < aioli._stdinTxt.length)
+					return aioli._stdinTxt.charCodeAt(aioli._stdinPtr++);
+				else {
+					aioli.stdin.clear();
+					return null;
+				}
+			},
 			// Setup print functions to store stdout/stderr output
 			print: text => tool.stdout += `${text}\n`,
 			printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
