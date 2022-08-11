@@ -33,8 +33,7 @@ const aioli = {
 	// 			reinit: false,                                // Optional, default="false". Set to "true" to reinitialize a module after each invocation
 	// 		},
 	// =========================================================================
-	async init()
-	{
+	async init() {
 		// Expect at least 1 module
 		if(aioli.tools.length === 0)
 			throw "Expecting at least 1 tool.";
@@ -84,8 +83,7 @@ const aioli = {
 	//		mount(<FileList>)
 	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, "https://somefile.com" ])
 	// =========================================================================
-	mount(files)
-	{
+	mount(files) {
 		const dirData = aioli.config.dirData;
 		const dirShared = aioli.config.dirShared;
 		const dirMounted = aioli.config.dirMounted;
@@ -258,9 +256,11 @@ const aioli = {
 	},
 
 	// =========================================================================
-	// Initialize a tool
 	// =========================================================================
 
+	// =========================================================================
+	// Initialize a tool
+	// =========================================================================
 	async _setup(tool) {
 		if(tool.ready)
 			return;
@@ -371,7 +371,6 @@ const aioli = {
 	// =========================================================================
 	// Utilities
 	// =========================================================================
-
 	// Common file operations
 	_fileop(operation, path) {
 		aioli._log(`Running ${operation} ${path}`);

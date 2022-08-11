@@ -29,10 +29,8 @@ const CONFIG_DEFAULTS = {
 };
 
 // Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one
-export default class Aioli
-{
-	constructor(tools, config={})
-	{
+export default class Aioli {
+	constructor(tools, config={}) {
 		if(tools == null)
 			throw "Expecting array of tools as input to Aioli constructor.";
 
@@ -83,8 +81,7 @@ export default class Aioli
 	}
 
 	// Parse "<tool>/<version>" and "<tool>/<program>/<version>" into { "tool": <tool>, "program": <program>, "version": <version> }
-	_parseTool(tool)
-	{
+	_parseTool(tool) {
 		// If not a string, leave it as is
 		if(typeof tool !== "string")
 			return tool;
