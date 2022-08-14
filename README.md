@@ -1,6 +1,6 @@
 # Aioli
 
-[![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli)
+[![npm](https://img.shields.io/npm/v/@biowasm/aioli)](https://www.npmjs.com/package/@biowasm/aioli) ![Aioli Tests](https://github.com/biowasm/aioli/workflows/Aioli%20Tests/badge.svg)
 
 Aioli is a library for running genomics command-line tools in the browser using WebAssembly. See [Who uses biowasm](https://github.com/biowasm/biowasm#who-uses-biowasm) for example use cases.
 
