@@ -24,6 +24,7 @@ Run `npm run test`.
 ### Deploy a new release candidate
 
 * Update version in `package.json` (append `-rc1` for release candidates)
+* Build: `npm run build`
 * Create npm package: `npm pack`
 * Publish package: `npm publish [tgzfile] --tag next`
 * To use pre-release version: `npm install @biowasm/aioli@next`
@@ -31,6 +32,7 @@ Run `npm run test`.
 ### Deploy a new version
 
 * Update version in `package.json`
+* Build: `npm run build`
 * Publish package: `npm publish --access public`
 * Create release in the GitHub repo
 * Add to [`biowasm.json`](https://github.com/biowasm/biowasm/blob/main/biowasm.json) and deploy biowasm CDN
