@@ -1,15 +1,13 @@
-import pkg from "../package.json";
-import * as Comlink from "comlink";
+import { wrap } from "comlink";
+import AioliWorker from "./worker?worker&inline";
 
 // Constants
-const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";
+const URL_CDN_ROOT = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
+const URL_CDN_ROOT_STG = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
-	// Get the Worker code corresponding to the current Aioli version
-	urlAioli: `${URL_CDN_ROOT}/aioli/${pkg.version}/aioli.worker.js`,
-	// Where we can find the base biowasm module (only modify this for local development)
-	urlBaseModule: null,
+	urlCDNStg: URL_CDN_ROOT_STG,
 
 	// Folder to use for mounting the shared filesystem
 	dirShared: "/shared",
@@ -33,10 +31,8 @@ const CONFIG_DEFAULTS = {
 };
 
 // Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one
-export default class Aioli
-{
-	constructor(tools, config={})
-	{
+export default class Aioli {
+	constructor(tools, config={}) {
 		if(tools == null)
 			throw "Expecting array of tools as input to Aioli constructor.";
 
@@ -47,18 +43,9 @@ export default class Aioli
 		config = Object.assign({}, CONFIG_DEFAULTS, config);
 		// For convenience, support "<tool>/<version>" or "<tool>/<program>/<version>" instead of object config
 		tools = tools.map(this._parseTool);
-		// If testing with different environment e.g. cdn-stg.biowasm.com
-		if(config.env != "prd") {
-			config.urlCDN = config.urlCDN.replace("cdn", `cdn-${config.env}`);
-			config.urlAioli = config.urlAioli.replace("cdn", `cdn-${config.env}`);
-		}
-
-		// Add biowasm base module to list of tools to initialize (need this for the shared virtual filesystem)
-		tools = [{
-			tool: "base",
-			version: pkg.version,
-			urlPrefix: config.urlBaseModule
-		}, ...tools];
+		// If testing with different environment e.g. stg.biowasm.com
+		if(config.env === "stg")
+			config.urlCDN = config.urlCDNStg;
 
 		// Set state
 		this.tools = tools;
@@ -74,14 +61,9 @@ export default class Aioli
 
 	// Initialize the WebWorker and the WebAssembly modules within it
 	async init() {
-		// Note: We can only create a WebWorker using a URL that has the same origin as the app running it, i.e. we
-		// can't do `new Worker("https://cdn.biowasm.com/v2/...")`, so instead we need to fetch the contents of that
-		// URL first, and then create the WebWorker. See <https://stackoverflow.com/a/60015898>.
-		const moduleJS = await (await fetch(this.config.urlAioli)).text();
-		const moduleBlob = new Blob([moduleJS], { type: "application/javascript" });
-
 		// Create the WebWorker
-		const worker = new Worker(URL.createObjectURL(moduleBlob));
+		const worker = new AioliWorker();
+
 		// Listen for "biowasm" messages from the WebWorker
 		if(this.callback)
 			worker.onmessage = e => {
@@ -89,7 +71,7 @@ export default class Aioli
 					this.callback(e.data.value);
 			}
 
-		const aioli = Comlink.wrap(worker);
+		const aioli = wrap(worker);
 		aioli.tools = this.tools;
 		aioli.config = this.config;
 
@@ -100,8 +82,7 @@ export default class Aioli
 	}
 
 	// Parse "<tool>/<version>" and "<tool>/<program>/<version>" into { "tool": <tool>, "program": <program>, "version": <version> }
-	_parseTool(tool)
-	{
+	_parseTool(tool) {
 		// If not a string, leave it as is
 		if(typeof tool !== "string")
 			return tool;

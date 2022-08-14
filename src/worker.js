@@ -1,15 +1,25 @@
-import * as Comlink from "comlink";
-import { simd, threads } from "wasm-feature-detect";
+import { expose } from "comlink";
+import { simd } from "wasm-feature-detect";
 
 const LOADING_EAGER = "eager";
 const LOADING_LAZY = "lazy";
 
+// Hardcode wasm features to avoid downloading a "config.json" for every tool.
+// As a result, adding a SIMD package to biowasm requires updating Aioli, but
+// there are very few packages that will require that.
+const WASM_FEATURES = {
+	"ssw": ["simd"],
+	"minimap2": ["simd"]
+};
+
+// Main Aioli logic
 const aioli = {
-	// Configuration
-	tools: [],   // Genomics tools that are available to use in this WebWorker
-	config: {},  // See main.js for defaults
-	files: [],   // File/Blob objects that represent local user files we mount to a virtual filesystem
-	fs: {},      // Main WebAssembly module's filesystem (equivalent to aioli.tools[0].module.FS)
+	// State
+	tools: [],      // Genomics tools that are available to use in this WebWorker
+	config: {},     // See main.js for defaults
+	files: [],      // File/Blob objects that represent local user files we mount to a virtual filesystem
+	baseModule: {}, // Base module (== aioli.tools[0])
+	fs: {},         // Base module's filesystem (== aioli.tools[0].module.FS)
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -18,15 +28,14 @@ const aioli = {
 	// 			tool: "samtools",                             // Required
 	// 			version: "1.10",                              // Required
 	// 			program: "samtools",                          // Optional, default="tool" name. Only use this for tools with multiple subtools
-	// 			urlPrefix: "https://cdn.biowasm.com/v2/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
+	// 			urlPrefix: "https://cdn.biowasm.com/v3/...",  // Optional, default=biowasm CDN. Only use for local biowasm development
 	// 			loading: "eager",                             // Optional, default="eager". Set to "lazy" to only load modules when they are used in exec()
 	// 			reinit: false,                                // Optional, default="false". Set to "true" to reinitialize a module after each invocation
 	// 		},
 	// =========================================================================
-	async init()
-	{
-		// The base biowasm module is always there ==> expect at least 2 modules
-		if(aioli.tools.length < 2)
+	async init() {
+		// Expect at least 1 module
+		if(aioli.tools.length === 0)
 			throw "Expecting at least 1 tool.";
 
 		// ---------------------------------------------------------------------
@@ -34,26 +43,26 @@ const aioli = {
 		// the other modules to mount in parallel)
 		// ---------------------------------------------------------------------
 
-		const baseModule = aioli.tools[0];
-		await this._setup(baseModule, true);
+		// First module can't be lazy-loaded because that's where the main filesystem is mounted
+		aioli.base = aioli.tools[0];
+		if(aioli.base.loading !== LOADING_EAGER) {
+			aioli._log(`Setting ${aioli.base.tool} to eager loading. First module cannot be lazy loaded because that's where the main filesystem is mounted.`);
+			aioli.base.loading = LOADING_EAGER;
+		}
+		await this._setup(aioli.base);
+		aioli.fs = aioli.base.module.FS;
 
 		// The base module has the main filesystem, which other tools will mount
-		baseModule.module.FS.mkdir(aioli.config.dirData, 0o777);
-		baseModule.module.FS.mkdir(aioli.config.dirMounted, 0o777);
-		baseModule.module.FS.chdir(aioli.config.dirData);
-		aioli.fs = baseModule.module.FS;
+		const dirShared = aioli.config.dirShared;
+		aioli.fs.mkdir(dirShared, 0o777);
+		aioli.fs.mkdir(`${dirShared}/${aioli.config.dirData}`, 0o777);
+		aioli.fs.mkdir(`${dirShared}/${aioli.config.dirMounted}`, 0o777);
+		aioli.fs.chdir(`${dirShared}/${aioli.config.dirData}`);
 
 		// ---------------------------------------------------------------------
-		// Set up all other modules
+		// Initialize all other modules
 		// ---------------------------------------------------------------------
 
-		// First module that isn't the base module can't be lazy-loaded. This is
-		// because we use the first module as the one where the main filesystem
-		// is mounted.
-		if(aioli.tools[1].loading == LOADING_LAZY)
-			aioli.tools[1].loading = LOADING_EAGER;
-
-		// Initialize modules
 		await this._initModules();
 		aioli._log("Ready");
 		return true;
@@ -61,10 +70,8 @@ const aioli = {
 
 	// Initialize all modules that should be eager-loaded (i.e. not lazy-loaded)
 	async _initModules() {
-		// Initialize main tool first since rely on it for filesystem paths
-		await this._setup(aioli.tools[1]);
-		// Initialize WebAssembly modules (downloads .wasm/.js/.json in parallel)
-		await Promise.all(aioli.tools.slice(2).map(tool => this._setup(tool)));
+		// Initialize WebAssembly modules in parallel (though can't call importScripts in parallel)
+		await Promise.all(aioli.tools.map(tool => this._setup(tool)));
 
 		// Setup filesystems so that tools can access each other's sample data
 		await this._setupFS();
@@ -76,8 +83,7 @@ const aioli = {
 	//		mount(<FileList>)
 	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, "https://somefile.com" ])
 	// =========================================================================
-	mount(files)
-	{
+	mount(files) {
 		const dirData = aioli.config.dirData;
 		const dirShared = aioli.config.dirShared;
 		const dirMounted = aioli.config.dirMounted;
@@ -119,7 +125,7 @@ const aioli = {
 
 		// Mount File & Blob objects
 		aioli.files = aioli.files.concat(toMount);
-		aioli.fs.mount(aioli.tools[0].module.WORKERFS, {
+		aioli.fs.mount(aioli.base.module.WORKERFS, {
 			files: aioli.files.filter(f => f instanceof File),
 			blobs: aioli.files.filter(f => f?.data instanceof Blob)
 		}, dirMounted);
@@ -131,12 +137,12 @@ const aioli = {
 			const oldpath = `${dirShared}${dirMounted}/${file.name}`;
 			const newpath = `${dirShared}${dirData}/${file.name}`;
 			try {
-				aioli.tools[1].module.FS.unlink(newpath);
+				aioli.fs.unlink(newpath);
 			} catch(e) {}
 			aioli._log(`Creating symlink: ${newpath} --> ${oldpath}`)
 
 			// Create symlink within first module's filesystem (note: tools[0] is always the "base" biowasm module)
-			aioli.tools[1].module.FS.symlink(oldpath, newpath);
+			aioli.fs.symlink(oldpath, newpath);
 		})
 
 		return mountedPaths.map(path => `${dirShared}${dirData}/${path}`);
@@ -145,8 +151,7 @@ const aioli = {
 	// =========================================================================
 	// Execute a command
 	// =========================================================================
-	async exec(command, args=null)
-	{
+	async exec(command, args=null) {
 		// Input validation
 		aioli._log(`Executing %c${command}%c args=${args}`, "color:darkblue; font-weight:bold", "");
 		if(!command)
@@ -162,10 +167,8 @@ const aioli = {
 		const tools = aioli.tools.filter(t => {
 			let tmpToolName = toolName;
 			// Take special WebAssembly features into account
-			if(t?.features?.simd === false)
-				tmpToolName = `${tmpToolName}-nosimd`;
-			if(t?.features?.threads === false)
-				tmpToolName = `${tmpToolName}-nothreads`;
+			if(t?.features?.simd === true)
+				tmpToolName = `${tmpToolName}-simd`;
 			return t.program == tmpToolName;
 		});
 		if(tools.length == 0)
@@ -216,7 +219,7 @@ const aioli = {
 			// Reinitialize module + setup FS
 			await this._setup(tool);
 			await this._setupFS();
-			await this.cd(pwd);
+			this.cd(pwd);
 		}
 
 		return result;
@@ -238,26 +241,37 @@ const aioli = {
 	},
 
 	cd(path) {
-		for(let i = 1; i < aioli.tools.length; i++) {
-			const module = aioli.tools[i].module;
+		for(let tool of aioli.tools) {
 			// Ignore modules that haven't been initialized yet (i.e. lazy-loaded modules)
+			const module = tool.module;
 			if(!module)
 				continue;
-			aioli.tools[i].module.FS.chdir(path);
+			tool.module.FS.chdir(path);
 		}
 	},
 
 	mkdir(path) {
-		aioli.tools[1].module.FS.mkdir(path);
+		aioli.fs.mkdir(path);
 		return true;
+	},
+
+	// =========================================================================
+	// Stdin management: Use await CLI.stdin.set("some text") to set the stdin to be used when a tool is called
+	// =========================================================================
+	_stdinTxt: "",
+	_stdinPtr: 0,
+	stdin: {
+		clear: () => aioli.stdin.set(""),
+		set: txt => {
+			aioli._stdinTxt = txt;
+			aioli._stdinPtr = 0;
+		},
 	},
 
 	// =========================================================================
 	// Initialize a tool
 	// =========================================================================
-
-	async _setup(tool, isBaseModule=false)
-	{
+	async _setup(tool) {
 		if(tool.ready)
 			return;
 
@@ -277,20 +291,14 @@ const aioli = {
 		if(!tool.program)
 			tool.program = tool.tool;
 
-		// SIMD and Threads are WebAssembly features that aren't enabled on all browsers. In those cases, we
-		// load the right version of the .wasm binaries based on what is supported by the user's browser.
-		if(!isBaseModule && !tool.features) {
+		// SIMD isn't enabled on all browsers. Load the right .wasm file based on the user's browser
+		if(!tool.features) {
 			tool.features = {};
-			const toolConfig = await fetch(`${tool.urlPrefix}/config.json`).then(d => d.json());
-			if(toolConfig["wasm-features"]?.includes("simd") && !await simd()) {
-				console.warn(`[biowasm] SIMD is not supported in this browser. Loading slower non-SIMD version of ${tool.program}.`);
-				tool.program += "-nosimd";
-				tool.features.simd = false;
-			}
-			if(toolConfig["wasm-features"]?.includes("threads") && !await threads()) {
-				console.warn(`[biowasm] Threads are not supported in this browser. Loading slower non-threaded version of ${tool.program}.`);
-				tool.program += "-nothreads";
-				tool.features.threads = false;
+			const wasmFeatures = WASM_FEATURES[tool.program] || [];
+			if(wasmFeatures.includes("simd") && await simd()) {
+				aioli._log(`SIMD is not supported in this browser. Loading non-SIMD version of ${tool.program}.`);
+				tool.program += "-simd";
+				tool.features.simd = true;
 			}
 		}
 
@@ -311,6 +319,15 @@ const aioli = {
 			thisProgram: tool.program,
 			// Used by Emscripten to find path to .wasm / .data files
 			locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
+			// Custom stdin handling
+			stdin: () => {
+				if(aioli._stdinPtr < aioli._stdinTxt.length)
+					return aioli._stdinTxt.charCodeAt(aioli._stdinPtr++);
+				else {
+					aioli.stdin.clear();
+					return null;
+				}
+			},
 			// Setup print functions to store stdout/stderr output
 			print: text => tool.stdout += `${text}\n`,
 			printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
@@ -320,24 +337,17 @@ const aioli = {
 		// Setup shared virtual file system
 		// -----------------------------------------------------------------
 
-		if(!isBaseModule) {
-			// PROXYFS allows us to point "/shared" to the base module's filesystem "/"
+		if(tool !== aioli.base) {
+			// PROXYFS allows us to point "/shared" to the base module's filesystem "/shared"
 			const FS = tool.module.FS;
 			FS.mkdir(aioli.config.dirShared);
 			FS.mount(tool.module.PROXYFS, {
-				root: "/",
+				root: aioli.config.dirShared,
 				fs: aioli.fs
 			}, aioli.config.dirShared);
 
-			// Set the working directory to be that mount folder for convenience if
-			// this is the first non-base module.
-			if(aioli.tools[1] == tool)
-				FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
-			// If it's not, we're initializing a new module, so we want it to be synced with
-			// the first non-base module (e.g. if lazy load 1 module, then cd, then load new
-			// module, must ensure both modules have the same working directory!)
-			else
-				FS.chdir(aioli.tools[1].module.FS.cwd());
+			// Set the working directory to be that mount folder for convenience
+			FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
 		}
 
 		// -----------------------------------------------------------------
@@ -349,55 +359,43 @@ const aioli = {
 		tool.ready = true;
 	},
 
-	// Setup filesystems so that tools can access each other's sample data
+	// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
+	// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
+	// other modules to also have access to those sample data files.
 	async _setupFS()
 	{
-		// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
-		// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
-		// other modules to also have access to those sample data files.
-		for(let i in aioli.tools)
-		{
-			// Skip base module, and lazy-loaded modules
-			if(i == 0 || aioli.tools[i].loading == LOADING_LAZY)
+		// Mount every tool's sample data onto the base module (including base module's own sample data)
+		const fsDst = aioli.fs;
+		for(let tool of aioli.tools) {
+			// Ignore lazy-loaded modules that haven't been initialized yet
+			if(!tool.ready)
 				continue;
 
-			for(let j in aioli.tools)
-			{
-				// Skip base module, self, and lazy-loaded modules
-				if(j == 0 || i == j || aioli.tools[j].loading == LOADING_LAZY)
-					continue;
+			// Skip if the source path doesn't exist or if the destination path has already been created
+			const fsSrc = tool.module.FS;
+			const pathSrc = `/${tool.tool}`;
+			const pathDst = `${aioli.config.dirShared}${pathSrc}`;
+			if(!fsSrc.analyzePath(pathSrc).exists || fsDst.analyzePath(pathDst).exists)
+				continue;
 
-				const fsSrc = aioli.tools[i].module.FS;
-				const fsDst = aioli.tools[j].module.FS;
-				
-				// Make sure source tool actually has such a folder (must be the same as the "module", not "program").
-				// Skip if the destination filesystem already has that folder (could theoretically happen if initialize)
-				// two copies of the same module.
-				const path = `/${aioli.tools[i].tool}`;
-				if(!fsSrc.analyzePath(path).exists || fsDst.analyzePath(path).exists)
-					continue;
-
-				aioli._log(`Mounting ${path} onto ${aioli.tools[j].tool} filesystem`);
-				fsDst.mkdir(path);
-				fsDst.mount(aioli.tools[0].module.PROXYFS, {
-					root: path,
-					fs: fsSrc
-				}, path);
-			}
+			aioli._log(`Mounting ${pathSrc} onto ${aioli.base.tool} filesystem at ${pathDst}`);
+			fsDst.mkdir(pathDst);
+			fsDst.mount(aioli.base.module.PROXYFS, {
+				root: pathSrc,
+				fs: fsSrc
+			}, pathDst);
 		}
 	},
 
 	// =========================================================================
 	// Utilities
 	// =========================================================================
-
 	// Common file operations
 	_fileop(operation, path) {
 		aioli._log(`Running ${operation} ${path}`);
 
 		// Check whether the file exists
-		const FS = aioli.tools[1].module.FS;
-		const info = FS.analyzePath(path);
+		const info = aioli.fs.analyzePath(path);
 		if(!info.exists) {
 			aioli._log(`File ${path} not found.`);
 			return false;
@@ -406,12 +404,12 @@ const aioli = {
 		// Execute operation of interest
 		switch (operation) {
 			case "cat":
-				return FS.readFile(path, { encoding: "utf8" });
+				return aioli.fs.readFile(path, { encoding: "utf8" });
 		
 			case "ls":
-				if(FS.isFile(info.object.mode))
-					return FS.stat(path);
-				return FS.readdir(path);
+				if(aioli.fs.isFile(info.object.mode))
+					return aioli.fs.stat(path);
+				return aioli.fs.readdir(path);
 
 			case "download":
 				const blob = new Blob([ this.cat(path) ]);
@@ -433,4 +431,4 @@ const aioli = {
 	}
 };
 
-Comlink.expose(aioli);
+expose(aioli);
