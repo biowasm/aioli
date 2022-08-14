@@ -2,10 +2,12 @@ import { wrap } from "comlink";
 import AioliWorker from "./worker?worker&inline";
 
 // Constants
-const URL_CDN_ROOT = "https://cdn.biowasm.com/v2";  // FIXME: v3
+const URL_CDN_ROOT = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
+const URL_CDN_ROOT_STG = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
+	urlCDNStg: URL_CDN_ROOT_STG,
 
 	// Folder to use for mounting the shared filesystem
 	dirShared: "/shared",
@@ -41,10 +43,9 @@ export default class Aioli {
 		config = Object.assign({}, CONFIG_DEFAULTS, config);
 		// For convenience, support "<tool>/<version>" or "<tool>/<program>/<version>" instead of object config
 		tools = tools.map(this._parseTool);
-		// If testing with different environment e.g. cdn-stg.biowasm.com
-		if(config.env != "prd") {
-			config.urlCDN = config.urlCDN.replace("cdn", `cdn-${config.env}`);
-		}
+		// If testing with different environment e.g. stg.biowasm.com
+		if(config.env === "stg")
+			config.urlCDN = config.urlCDNStg;
 
 		// Set state
 		this.tools = tools;
