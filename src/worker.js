@@ -295,10 +295,13 @@ const aioli = {
 		if(!tool.features) {
 			tool.features = {};
 			const wasmFeatures = WASM_FEATURES[tool.program] || [];
-			if(wasmFeatures.includes("simd") && await simd()) {
-				aioli._log(`SIMD is not supported in this browser. Loading non-SIMD version of ${tool.program}.`);
-				tool.program += "-simd";
-				tool.features.simd = true;
+			if(wasmFeatures.includes("simd")) {
+				if(await simd()) {
+					tool.program += "-simd";
+					tool.features.simd = true;
+				} else {
+					aioli._log(`WebAssembly SIMD is not supported in this browser; will load non-SIMD version of ${tool.program}.`);
+				}
 			}
 		}
 
