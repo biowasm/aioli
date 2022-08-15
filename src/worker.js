@@ -164,17 +164,16 @@ const aioli = {
 		}
 
 		// Does it match a program we've already initialized?
-		const tools = aioli.tools.filter(t => {
+		const tool = aioli.tools.find(t => {
 			let tmpToolName = toolName;
 			// Take special WebAssembly features into account
 			if(t?.features?.simd === true)
 				tmpToolName = `${tmpToolName}-simd`;
 			return t.program == tmpToolName;
 		});
-		if(tools.length == 0)
+		if(tool == null)
 			throw `Program ${toolName} not found.`;
 		// Prepare tool
-		const tool = tools[0];		
 		tool.stdout = "";
 		tool.stderr = "";
 
@@ -189,7 +188,7 @@ const aioli = {
 		try {
 			tool.module.callMain(args);
 		} catch (error) {
-			console.error(error)
+			console.error(error);
 		}
 
 		// Flush stdout/stderr to make sure we got everything. Otherwise, if use a command like 
