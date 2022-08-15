@@ -212,12 +212,13 @@ const aioli = {
 		if(tool.reinit === true) {
 			// Save working directory so we can return to it after reinitialization
 			const pwd = tool.module.FS.cwd();
+
 			// Reset config
 			Object.assign(tool, tool.config);
 			tool.ready = false;
-			// Reinitialize module + setup FS
-			await this._setup(tool);
-			await this._setupFS();
+
+			// Reinitialize modules and go back to previous folder
+			this.init();
 			this.cd(pwd);
 		}
 
