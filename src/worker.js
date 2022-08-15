@@ -91,13 +91,12 @@ const aioli = {
 		// Input validation. Note that FileList is not an array so we can't use Array.isArray() but it does have a
 		// length attribute. So do strings, which is why we explicitly check for those.
 		let toMount = [], mountedPaths = [];
-		if(!files?.length || typeof files === "string")
+		if(!Array.isArray(files) || typeof files === "string")
 			files = [ files ];
 		aioli._log(`Mounting ${files.length} files`);
 
 		// Sort files by type: File vs. Blob vs. URL
-		for(let file of files)
-		{
+		for(let file of files) {
 			// Handle File/Blob objects
 			// Blob formats: { name: "filename.txt", data: new Blob(['blob data']) }
 			if(file instanceof File || (file?.data instanceof Blob && file.name)) {
@@ -125,10 +124,11 @@ const aioli = {
 
 		// Mount File & Blob objects
 		aioli.files = aioli.files.concat(toMount);
-		aioli.fs.mount(aioli.base.module.WORKERFS, {
-			files: aioli.files.filter(f => f instanceof File),
-			blobs: aioli.files.filter(f => f?.data instanceof Blob)
-		}, dirMounted);
+		if(aioli.files.length > 0)
+			aioli.fs.mount(aioli.base.module.WORKERFS, {
+				files: aioli.files.filter(f => f instanceof File),
+				blobs: aioli.files.filter(f => f?.data instanceof Blob)
+			}, dirMounted);
 
 		// Create symlinks for convenience. The folder "dirMounted" is a WORKERFS, which is read-only. By adding
 		// symlinks to a separate writeable folder "dirData", we can support commands like "samtools index abc.bam",
@@ -143,7 +143,7 @@ const aioli = {
 
 			// Create symlink within first module's filesystem (note: tools[0] is always the "base" biowasm module)
 			aioli.fs.symlink(oldpath, newpath);
-		})
+		});
 
 		return mountedPaths.map(path => `${dirShared}${dirData}/${path}`);
 	},
@@ -274,6 +274,7 @@ const aioli = {
 	async _setup(tool) {
 		if(tool.ready)
 			return;
+		aioli._log(`Setting up ${tool.tool}...`);
 
 		// Save original config in case need them to reinitialize (use Object.assign to avoid ref changes)
 		tool.config = Object.assign({}, tool);
@@ -365,8 +366,7 @@ const aioli = {
 	// Some tools have preloaded files mounted to their filesystems to hold sample data (e.g. /samtools/examples/).
 	// By default, those are only accessible from the filesystem of the respective tool. Here, we want to allow
 	// other modules to also have access to those sample data files.
-	async _setupFS()
-	{
+	async _setupFS() {
 		// Mount every tool's sample data onto the base module (including base module's own sample data)
 		const fsDst = aioli.fs;
 		for(let tool of aioli.tools) {
