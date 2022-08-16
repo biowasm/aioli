@@ -191,10 +191,10 @@ const aioli = {
 		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
+			// Save state before reinitializing
 			const isBaseModule = tool === aioli.base;
-
-			// Save working directory so we can return to it after reinitialization
 			const pwd = tool.module.FS.cwd();
+
 			// Reset config
 			Object.assign(tool, tool.config);
 			tool.ready = false;
@@ -242,16 +242,17 @@ const aioli = {
 	},
 
 	// =========================================================================
-	// Stdin management: Use await CLI.stdin.set("some text") to set the stdin to be used when a tool is called
+	// Stdin management: Use `CLI.stdin = "some text"` to set stdin before calling a tool
 	// =========================================================================
 	_stdinTxt: "",
 	_stdinPtr: 0,
-	stdin: {
-		clear: () => aioli.stdin.set(""),
-		set: txt => {
-			aioli._stdinTxt = txt;
-			aioli._stdinPtr = 0;
-		},
+	get stdin() {
+		return aioli._stdinTxt;
+	},
+	set stdin(txt = "") {
+		aioli._log(`Setting stdin to %c${txt}%c`, "color:darkblue", "");
+		aioli._stdinTxt = txt;
+		aioli._stdinPtr = 0;
 	},
 
 	// =========================================================================
@@ -316,10 +317,10 @@ const aioli = {
 			locateFile: (path, prefix) => `${tool.urlPrefix}/${path}`,
 			// Custom stdin handling
 			stdin: () => {
-				if(aioli._stdinPtr < aioli._stdinTxt.length)
-					return aioli._stdinTxt.charCodeAt(aioli._stdinPtr++);
+				if(aioli._stdinPtr < aioli.stdin.length)
+					return aioli.stdin.charCodeAt(aioli._stdinPtr++);
 				else {
-					aioli.stdin.clear();
+					aioli.stdin = "";
 					return null;
 				}
 			},
