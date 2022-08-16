@@ -38,31 +38,12 @@ const aioli = {
 		if(aioli.tools.length === 0)
 			throw "Expecting at least 1 tool.";
 
-		// ---------------------------------------------------------------------
-		// Set up base module (do that first so that its filesystem is ready for
-		// the other modules to mount in parallel)
-		// ---------------------------------------------------------------------
-
-		// First module can't be lazy-loaded because that's where the main filesystem is mounted
+		// Set up base module first so that its filesystem is ready for the other
+		// modules to mount in parallel
 		aioli.base = aioli.tools[0];
-		if(aioli.base.loading !== LOADING_EAGER) {
-			aioli._log(`Setting ${aioli.base.tool} to eager loading. First module cannot be lazy loaded because that's where the main filesystem is mounted.`);
-			aioli.base.loading = LOADING_EAGER;
-		}
 		await this._setup(aioli.base);
-		aioli.fs = aioli.base.module.FS;
 
-		// The base module has the main filesystem, which other tools will mount
-		const dirShared = aioli.config.dirShared;
-		aioli.fs.mkdir(dirShared, 0o777);
-		aioli.fs.mkdir(`${dirShared}/${aioli.config.dirData}`, 0o777);
-		aioli.fs.mkdir(`${dirShared}/${aioli.config.dirMounted}`, 0o777);
-		aioli.fs.chdir(`${dirShared}/${aioli.config.dirData}`);
-
-		// ---------------------------------------------------------------------
 		// Initialize all other modules
-		// ---------------------------------------------------------------------
-
 		await this._initModules();
 		aioli._log("Ready");
 		return true;
@@ -210,15 +191,20 @@ const aioli = {
 		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
+			const isBaseModule = tool === aioli.base;
+
 			// Save working directory so we can return to it after reinitialization
 			const pwd = tool.module.FS.cwd();
-
 			// Reset config
 			Object.assign(tool, tool.config);
 			tool.ready = false;
+			// Reinitialize modules
+			await this.init();
+			// If reinitialized the base module, remount previously mounted files
+			if(isBaseModule)
+				this.mount([]);
 
-			// Reinitialize modules and go back to previous folder
-			this.init();
+			// Go back to previous folder
 			this.cd(pwd);
 		}
 
@@ -306,6 +292,11 @@ const aioli = {
 			}
 		}
 
+		// First module can't be lazy-loaded because that's where the main filesystem is mounted
+		if(tool === aioli.base && aioli.base.loading !== LOADING_EAGER) {
+			aioli._log(`Setting ${aioli.base.tool} to eager loading. First module cannot be lazy loaded because that's where the main filesystem is mounted.`);
+			aioli.base.loading = LOADING_EAGER;
+		}
 		// If want lazy loading, don't go any further
 		if(tool.loading === LOADING_LAZY)
 			return;
@@ -338,10 +329,19 @@ const aioli = {
 		});
 
 		// -----------------------------------------------------------------
-		// Setup shared virtual file system
+		// Setup file system
 		// -----------------------------------------------------------------
 
-		if(tool !== aioli.base) {
+		// The base module has the main filesystem, which other tools will mount
+		if(tool === aioli.base) {
+			aioli.fs = aioli.base.module.FS;
+			aioli.fs.mkdir(aioli.config.dirShared, 0o777);
+			aioli.fs.mkdir(`${aioli.config.dirShared}/${aioli.config.dirData}`, 0o777);
+			aioli.fs.mkdir(`${aioli.config.dirShared}/${aioli.config.dirMounted}`, 0o777);
+			aioli.fs.chdir(`${aioli.config.dirShared}/${aioli.config.dirData}`);
+
+		// Non-base modules should proxy base module's FS
+		} else {
 			// PROXYFS allows us to point "/shared" to the base module's filesystem "/shared"
 			const FS = tool.module.FS;
 			FS.mkdir(aioli.config.dirShared);
