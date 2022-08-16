@@ -41,6 +41,7 @@ const aioli = {
 		// Set up base module first so that its filesystem is ready for the other
 		// modules to mount in parallel
 		aioli.base = aioli.tools[0];
+		aioli.base.isBaseModule = true;
 		await this._setup(aioli.base);
 
 		// Initialize all other modules
@@ -52,7 +53,7 @@ const aioli = {
 	// Initialize all modules that should be eager-loaded (i.e. not lazy-loaded)
 	async _initModules() {
 		// Initialize WebAssembly modules in parallel (though can't call importScripts in parallel)
-		await Promise.all(aioli.tools.map(tool => this._setup(tool)));
+		await Promise.all(aioli.tools.map(this._setup));
 
 		// Setup filesystems so that tools can access each other's sample data
 		await this._setupFS();
@@ -60,27 +61,28 @@ const aioli = {
 
 	// =========================================================================
 	// Mount files to the virtual file system
-	// Supports <FileList>, <File>, <Blob>, and string URLs:
+	// Supports <FileList>, <File>, <Blob>, strings, and string URLs:
 	//		mount(<FileList>)
-	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, "https://somefile.com" ])
+	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, { name: "file.txt", data: "string" }, "https://somefile.com" ])
 	// =========================================================================
-	mount(files) {
-		const dirData = aioli.config.dirData;
-		const dirShared = aioli.config.dirShared;
-		const dirMounted = aioli.config.dirMounted;
-
-		// Input validation. Note that FileList is not an array so we can't use Array.isArray() but it does have a
-		// length attribute. So do strings, which is why we explicitly check for those.
+	mount(files=[]) {
+		const dirData = `${aioli.config.dirShared}${aioli.config.dirData}`;
+		const dirMounted = `${aioli.config.dirShared}${aioli.config.dirMounted}`;
 		let toMount = [], mountedPaths = [];
-		if(!Array.isArray(files) || typeof files === "string")
+
+		// Input validation: auto convert singletons to array for convenience
+		if(!Array.isArray(files) && !(files instanceof FileList))
 			files = [ files ];
 		aioli._log(`Mounting ${files.length} files`);
 
 		// Sort files by type: File vs. Blob vs. URL
 		for(let file of files) {
-			// Handle File/Blob objects
-			// Blob formats: { name: "filename.txt", data: new Blob(['blob data']) }
-			if(file instanceof File || (file?.data instanceof Blob && file.name)) {
+			// Handle Files/Blobs/strings
+			// String format: { name: "filename.txt", data: "string data" }
+			// Blob format: { name: "filename.txt", data: new Blob(['blob data']) }
+			if(file instanceof File || (file?.data instanceof Blob && file.name) || (typeof file?.data === "string" && file.name)) {
+				if(typeof file?.data === "string")
+					file.data = new Blob([ file.data ], { type: "text/plain" });
 				toMount.push(file);
 				mountedPaths.push(file.name);
 
@@ -105,18 +107,17 @@ const aioli = {
 
 		// Mount File & Blob objects
 		aioli.files = aioli.files.concat(toMount);
-		if(aioli.files.length > 0)
-			aioli.fs.mount(aioli.base.module.WORKERFS, {
-				files: aioli.files.filter(f => f instanceof File),
-				blobs: aioli.files.filter(f => f?.data instanceof Blob)
-			}, dirMounted);
+		aioli.base.module.FS.mount(aioli.base.module.WORKERFS, {
+			files: aioli.files.filter(f => f instanceof File),
+			blobs: aioli.files.filter(f => f?.data instanceof Blob)
+		}, dirMounted);
 
 		// Create symlinks for convenience. The folder "dirMounted" is a WORKERFS, which is read-only. By adding
 		// symlinks to a separate writeable folder "dirData", we can support commands like "samtools index abc.bam",
 		// which create a "abc.bam.bai" file in the same path where the .bam file is created.
 		toMount.map(file => {
-			const oldpath = `${dirShared}${dirMounted}/${file.name}`;
-			const newpath = `${dirShared}${dirData}/${file.name}`;
+			const oldpath = `${dirMounted}/${file.name}`;
+			const newpath = `${dirData}/${file.name}`;
 			try {
 				aioli.fs.unlink(newpath);
 			} catch(e) {}
@@ -126,7 +127,7 @@ const aioli = {
 			aioli.fs.symlink(oldpath, newpath);
 		});
 
-		return mountedPaths.map(path => `${dirShared}${dirData}/${path}`);
+		return mountedPaths.map(path => `${dirData}/${path}`);
 	},
 
 	// =========================================================================
@@ -192,7 +193,6 @@ const aioli = {
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
 			// Save state before reinitializing
-			const isBaseModule = tool === aioli.base;
 			const pwd = tool.module.FS.cwd();
 
 			// Reset config
@@ -201,8 +201,8 @@ const aioli = {
 			// Reinitialize modules
 			await this.init();
 			// If reinitialized the base module, remount previously mounted files
-			if(isBaseModule)
-				this.mount([]);
+			if(tool.isBaseModule)
+				this.mount();
 
 			// Go back to previous folder
 			this.cd(pwd);
@@ -261,7 +261,7 @@ const aioli = {
 	async _setup(tool) {
 		if(tool.ready)
 			return;
-		aioli._log(`Setting up ${tool.tool}...`);
+		aioli._log(`Setting up ${tool.tool} (base = ${tool.isBaseModule === true})...`);
 
 		// Save original config in case need them to reinitialize (use Object.assign to avoid ref changes)
 		tool.config = Object.assign({}, tool);
@@ -294,13 +294,13 @@ const aioli = {
 		}
 
 		// First module can't be lazy-loaded because that's where the main filesystem is mounted
-		if(tool === aioli.base && aioli.base.loading !== LOADING_EAGER) {
-			aioli._log(`Setting ${aioli.base.tool} to eager loading. First module cannot be lazy loaded because that's where the main filesystem is mounted.`);
-			aioli.base.loading = LOADING_EAGER;
-		}
+		if(tool.isBaseModule)
+			tool.loading = LOADING_EAGER;
 		// If want lazy loading, don't go any further
-		if(tool.loading === LOADING_LAZY)
+		if(tool.loading === LOADING_LAZY) {
+			aioli._log(`Will lazy-load ${tool.tool}; skipping initialization.`)
 			return;
+		}
 
 		// -----------------------------------------------------------------
 		// Import the WebAssembly module
@@ -333,18 +333,22 @@ const aioli = {
 		// Setup file system
 		// -----------------------------------------------------------------
 
+		const FS = tool.module.FS;
+
 		// The base module has the main filesystem, which other tools will mount
-		if(tool === aioli.base) {
-			aioli.fs = aioli.base.module.FS;
-			aioli.fs.mkdir(aioli.config.dirShared, 0o777);
-			aioli.fs.mkdir(`${aioli.config.dirShared}/${aioli.config.dirData}`, 0o777);
-			aioli.fs.mkdir(`${aioli.config.dirShared}/${aioli.config.dirMounted}`, 0o777);
-			aioli.fs.chdir(`${aioli.config.dirShared}/${aioli.config.dirData}`);
+		if(tool.isBaseModule) {
+			aioli._log(`Setting up ${tool.tool} with base module filesystem...`);
+			FS.mkdir(aioli.config.dirShared, 0o777);
+			FS.mkdir(`${aioli.config.dirShared}/${aioli.config.dirData}`, 0o777);
+			FS.mkdir(`${aioli.config.dirShared}/${aioli.config.dirMounted}`, 0o777);
+			FS.chdir(`${aioli.config.dirShared}/${aioli.config.dirData}`);
+			FS.writeFile("test.txt", "hello");
+			aioli.fs = FS;
 
 		// Non-base modules should proxy base module's FS
 		} else {
+			aioli._log(`Setting up ${tool.tool} with filesystem...`)
 			// PROXYFS allows us to point "/shared" to the base module's filesystem "/shared"
-			const FS = tool.module.FS;
 			FS.mkdir(aioli.config.dirShared);
 			FS.mount(tool.module.PROXYFS, {
 				root: aioli.config.dirShared,
