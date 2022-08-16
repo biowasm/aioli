@@ -67,7 +67,7 @@ export default class Aioli {
 		// Listen for "biowasm" messages from the WebWorker
 		if(this.callback)
 			worker.onmessage = e => {
-				if(e.data.type == "biowasm")
+				if(e.data.type === "biowasm")
 					this.callback(e.data.value);
 			}
 

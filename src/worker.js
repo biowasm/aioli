@@ -15,11 +15,11 @@ const WASM_FEATURES = {
 // Main Aioli logic
 const aioli = {
 	// State
-	tools: [],      // Genomics tools that are available to use in this WebWorker
-	config: {},     // See main.js for defaults
-	files: [],      // File/Blob objects that represent local user files we mount to a virtual filesystem
-	baseModule: {}, // Base module (== aioli.tools[0])
-	fs: {},         // Base module's filesystem (== aioli.tools[0].module.FS)
+	tools: [],   // Tools that are available to use in this WebWorker
+	config: {},  // See main.js for defaults
+	files: [],   // File/Blob objects that represent local user files we mount to a virtual filesystem
+	base: {},    // Base module (== aioli.tools[0])
+	fs: {},      // Base module's filesystem (== aioli.tools[0].module.FS)
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -307,7 +307,7 @@ const aioli = {
 		}
 
 		// If want lazy loading, don't go any further
-		if(tool.loading == LOADING_LAZY)
+		if(tool.loading === LOADING_LAZY)
 			return;
 
 		// -----------------------------------------------------------------
@@ -408,7 +408,7 @@ const aioli = {
 		switch (operation) {
 			case "cat":
 				return aioli.fs.readFile(path, { encoding: "utf8" });
-		
+
 			case "ls":
 				if(aioli.fs.isFile(info.object.mode))
 					return aioli.fs.stat(path);
