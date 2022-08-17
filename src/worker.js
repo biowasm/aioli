@@ -247,6 +247,10 @@ const aioli = {
 		return aioli._fileop("download", path);
 	},
 
+	pwd() {
+		return aioli.fs.cwd();
+	},
+
 	cd(path) {
 		for(let tool of aioli.tools) {
 			// Ignore modules that haven't been initialized yet (i.e. lazy-loaded modules)
