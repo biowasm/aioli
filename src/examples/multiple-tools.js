@@ -1,4 +1,4 @@
-import Aioli from "../dist/aioli.mjs";
+import Aioli from "../../dist/aioli.mjs";
 
 // Initialize Aioli with samtools and seqtk
 const CLI = await new Aioli(["samtools/1.10", "seqtk/1.3", {
