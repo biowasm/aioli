@@ -1,6 +1,6 @@
 import Aioli from "../../dist/aioli.js";
 
-const TOOLS = [
+const TOOLS_LOCAL = [
 	{
 		tool: "samtools",
 		version: "1.10",
@@ -20,8 +20,22 @@ const TOOLS = [
 	}
 ];
 
+const TOOLS_CDN = TOOLS_LOCAL.map(d => {
+	d.urlPrefix = null;
+	return d;
+});
+
 describe("Running WebAssembly modules", () => {
-	it("Run commands", async () => {
+	it("Run commands (local)", async () => {
+		await runTests(TOOLS_LOCAL);
+	});
+
+	it("Run commands (CDN)", async () => {
+		await runTests(TOOLS_CDN);
+	});
+});
+
+async function runTests(TOOLS) {
 		const CLI = await new Aioli(TOOLS, { debug: true });
 
 		// Only eager-loaded modules should be initialized now
@@ -42,7 +56,7 @@ describe("Running WebAssembly modules", () => {
 		const pwdExpected = "/shared";
 		expect(pwdObserved).to.equal(pwdExpected);
 		await CLI.cd("/shared/data");
-		
+
 		// Expect bedtools folder to show up after bedtools is initialized
 		const bedtoolsObserved = await CLI.exec("bedtools --version");
 		const bedtoolsExpected = `bedtools v2.29.2\n`;
@@ -85,5 +99,4 @@ describe("Running WebAssembly modules", () => {
 		const samtoolsViewObserved = await CLI.exec("samtools view examples/toy.sam");
 		const samtoolsViewExpected = `r001\t163\tref\t7\t30\t8M4I4M1D3M\t=\t37\t39\tTTAGATAAAGAGGATACTG\t*\tXX:B:S,12561,2,20,112\nr002\t0\tref\t9\t30\t1S2I6M1P1I1P1I4M2I\t*\t0\t0\tAAAAGATAAGGGATAAA\t*\nr003\t0\tref\t9\t30\t5H6M\t*\t0\t0\tAGCTAA\t*\nr004\t0\tref\t16\t30\t6M14N1I5M\t*\t0\t0\tATAGCTCTCAGC\t*\nr003\t16\tref\t29\t30\t6H5M\t*\t0\t0\tTAGGC\t*\nr001\t83\tref\t37\t30\t9M\t=\t7\t-39\tCAGCGCCAT\t*\nx1\t0\tref2\t1\t30\t20M\t*\t0\t0\tAGGTTTTATAAAACAAATAA\t????????????????????\nx2\t0\tref2\t2\t30\t21M\t*\t0\t0\tGGTTTTATAAAACAAATAATT\t?????????????????????\nx3\t0\tref2\t6\t30\t9M4I13M\t*\t0\t0\tTTATAAAACAAATAATTAAGTCTACA\t??????????????????????????\nx4\t0\tref2\t10\t30\t25M\t*\t0\t0\tCAAATAATTAAGTCTACAGAGCAAC\t?????????????????????????\nx5\t0\tref2\t12\t30\t24M\t*\t0\t0\tAATAATTAAGTCTACAGAGCAACT\t????????????????????????\nx6\t0\tref2\t14\t30\t23M\t*\t0\t0\tTAATTAAGTCTACAGAGCAACTA\t???????????????????????\n`;
 		expect(samtoolsViewObserved).to.equal(samtoolsViewExpected);
-	});
-});
+}
