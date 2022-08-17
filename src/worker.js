@@ -214,12 +214,11 @@ const aioli = {
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
 			// Save state before reinitializing
-			const pwd = tool.module.FS.cwd();
+			const pwd = aioli.base.module.FS.cwd();
 
-			// Reset config
+			// Reinitialize module
 			Object.assign(tool, tool.config);
 			tool.ready = false;
-			// Reinitialize modules
 			await this.init();
 			// If reinitialized the base module, remount previously mounted files
 			if(tool.isBaseModule)
@@ -367,7 +366,6 @@ const aioli = {
 			FS.mkdir(`${aioli.config.dirShared}/${aioli.config.dirData}`, 0o777);
 			FS.mkdir(`${aioli.config.dirShared}/${aioli.config.dirMounted}`, 0o777);
 			FS.chdir(`${aioli.config.dirShared}/${aioli.config.dirData}`);
-			FS.writeFile("test.txt", "hello");
 			aioli.fs = FS;
 
 		// Non-base modules should proxy base module's FS
@@ -380,8 +378,10 @@ const aioli = {
 				fs: aioli.fs
 			}, aioli.config.dirShared);
 
-			// Set the working directory to be that mount folder for convenience
-			FS.chdir(`${aioli.config.dirShared}${aioli.config.dirData}`);
+			// Set the working directory to be the same as the base module so we keep them in sync.
+			// If all modules are eager loaded, this will just be /shared/data, but if this module
+			// is lazy loaded, it should be whichever folder the base module is currently at!
+			FS.chdir(aioli.fs.cwd());
 		}
 
 		// -----------------------------------------------------------------
