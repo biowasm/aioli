@@ -36,6 +36,13 @@ describe("Running WebAssembly modules", () => {
 		const lsExpected = [".", "..", "data", "mnt", "samtools"].join(",");
 		expect(lsObserved).to.equal(lsExpected);
 
+		// Basic cd / pwd
+		await CLI.cd("/shared");
+		const pwdObserved = await CLI.pwd();
+		const pwdExpected = "/shared";
+		expect(pwdObserved).to.equal(pwdExpected);
+		await CLI.cd("/shared/data");
+		
 		// Expect bedtools folder to show up after bedtools is initialized
 		const bedtoolsObserved = await CLI.exec("bedtools --version");
 		const bedtoolsExpected = `bedtools v2.29.2\n`;
