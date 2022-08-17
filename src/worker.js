@@ -18,8 +18,8 @@ const aioli = {
 	tools: [],   // Tools that are available to use in this WebWorker
 	config: {},  // See main.js for defaults
 	files: [],   // File/Blob objects that represent local user files we mount to a virtual filesystem
-	base: {},    // Base module (== aioli.tools[0])
-	fs: {},      // Base module's filesystem (== aioli.tools[0].module.FS)
+	base: {},    // Base module (e.g. aioli.tools[0]; not always [0], see init())
+	fs: {},      // Base module's filesystem (e.g. aioli.tools[0].module.FS)
 
 	// =========================================================================
 	// Initialize the WebAssembly module(s)
@@ -38,10 +38,16 @@ const aioli = {
 		if(aioli.tools.length === 0)
 			throw "Expecting at least 1 tool.";
 
+		// The base module cannot be reinitializable since we rely on its filesystem
+		// to be stable (can remount files explicitly mounted via Aioli, but can't
+		// remount files created by a tool). Try to find tool matching this criteria.
+		aioli.base = aioli.tools.find(t => t.reinit !== true);
+		if(!aioli.base)
+			throw "Could not find a tool with `reinit: false` to use as the base module. To fix this issue, include the tool `base/1.0.0` when initializing Aioli.";
+		aioli.base.isBaseModule = true;
+
 		// Set up base module first so that its filesystem is ready for the other
 		// modules to mount in parallel
-		aioli.base = aioli.tools[0];
-		aioli.base.isBaseModule = true;
 		await this._setup(aioli.base);
 
 		// Initialize all other modules
@@ -96,16 +102,16 @@ const aioli = {
 
 			// Otherwise, incorrect data provided
 			} else {
-				throw "Cannot mount file(s) specified. Must be a File, Blob, or a URL string.";
+				throw `Cannot mount file(s) specified. Must be a File, Blob, a URL string, or { name: "file.txt", data: "string" }.`;
 			}
 		}
 
-		// Unmount and remount Files and Blobs since WORKERFS is read-only (i.e. can only mount a folder once)
+		// Unmount and remount files since WORKERFS is read-only (i.e. can only mount a folder once)
 		try {
 			aioli.fs.unmount(dirMounted);
 		} catch(e) {}
 
-		// Mount File & Blob objects
+		// Mount files
 		aioli.files = aioli.files.concat(toMount);
 		aioli.base.module.FS.mount(aioli.base.module.WORKERFS, {
 			files: aioli.files.filter(f => f instanceof File),
