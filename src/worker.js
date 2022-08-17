@@ -69,12 +69,18 @@ const aioli = {
 	// Mount files to the virtual file system
 	// Supports <FileList>, <File>, <Blob>, strings, and string URLs:
 	//		mount(<FileList>)
-	//		mount([ <File>, { name: "blob.txt", data: <Blob> }, { name: "file.txt", data: "string" }, "https://somefile.com" ])
+	//		mount([
+	//			<File>,
+	// 			{ name: "blob.txt", data: <Blob> },
+	//			{ name: "file.txt", data: "string" },
+	//			{ name: "hello.txt", url: "https://domain.com/..." },
+	//			"https://somefile.com"
+	//		])
 	// =========================================================================
 	mount(files=[]) {
 		const dirData = `${aioli.config.dirShared}${aioli.config.dirData}`;
 		const dirMounted = `${aioli.config.dirShared}${aioli.config.dirMounted}`;
-		let toMount = [], mountedPaths = [];
+		let toMountFiles = [], toMountURLs = [], mountedPaths = [];
 
 		// Input validation: auto convert singletons to array for convenience
 		if(!Array.isArray(files) && !(files instanceof FileList))
@@ -83,27 +89,31 @@ const aioli = {
 
 		// Sort files by type: File vs. Blob vs. URL
 		for(let file of files) {
-			// Handle Files/Blobs/strings
+			// Handle Files/Blobs/Data strings
 			// String format: { name: "filename.txt", data: "string data" }
 			// Blob format: { name: "filename.txt", data: new Blob(['blob data']) }
 			if(file instanceof File || (file?.data instanceof Blob && file.name) || (typeof file?.data === "string" && file.name)) {
 				if(typeof file?.data === "string")
 					file.data = new Blob([ file.data ], { type: "text/plain" });
-				toMount.push(file);
+				toMountFiles.push(file);
 				mountedPaths.push(file.name);
+
+			// Handle URLs
+			// URL format: { name: "filename.txt", url: "https://url" }
+			} else if(file.name && file.url) {
+				toMountURLs.push(file);
 
 			// Handle URLs: mount "https://website.com/some/path.js" to "/urls/website.com-some-path.js")
 			} else if(typeof file == "string" && file.startsWith("http")) {
-				// Mount a URL "lazily" to the file system, i.e. don't download any of it, but will automatically do
-				// HTTP Range requests when a tool requests a subset of bytes from that file.
-				const fileName = file.split("//").pop().replace(/\//g, "-");
-				aioli.fs.createLazyFile(dirData, fileName, file, true, true);
-				mountedPaths.push(fileName);
+				file = { url: file, name: file.split("//").pop().replace(/\//g, "-") };
+				toMountURLs.push(file);
 
 			// Otherwise, incorrect data provided
 			} else {
 				throw `Cannot mount file(s) specified. Must be a File, Blob, a URL string, or { name: "file.txt", data: "string" }.`;
 			}
+
+			mountedPaths.push(file.name);
 		}
 
 		// Unmount and remount files since WORKERFS is read-only (i.e. can only mount a folder once)
@@ -111,8 +121,13 @@ const aioli = {
 			aioli.fs.unmount(dirMounted);
 		} catch(e) {}
 
-		// Mount files
-		aioli.files = aioli.files.concat(toMount);
+		// Lazy-mount URLs, i.e. don't download any of them, but will automatically do
+		// HTTP Range requests when a tool requests a subset of bytes from a file.
+		for(let file of toMountURLs)
+			aioli.fs.createLazyFile(dirData, file.name, file.url, true, true);
+
+		// Mount files (save for later for the next time we need to remount them)
+		aioli.files = aioli.files.concat(toMountFiles);
 		aioli.base.module.FS.mount(aioli.base.module.WORKERFS, {
 			files: aioli.files.filter(f => f instanceof File),
 			blobs: aioli.files.filter(f => f?.data instanceof Blob)
@@ -121,7 +136,7 @@ const aioli = {
 		// Create symlinks for convenience. The folder "dirMounted" is a WORKERFS, which is read-only. By adding
 		// symlinks to a separate writeable folder "dirData", we can support commands like "samtools index abc.bam",
 		// which create a "abc.bam.bai" file in the same path where the .bam file is created.
-		toMount.map(file => {
+		toMountFiles.map(file => {
 			const oldpath = `${dirMounted}/${file.name}`;
 			const newpath = `${dirData}/${file.name}`;
 			try {
