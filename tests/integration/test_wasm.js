@@ -17,6 +17,13 @@ const TOOLS_LOCAL = [
 		version: "2.29.2",
 		urlPrefix: "http://localhost:11111/tests/data/bedtools",
 		loading: "lazy"
+	},
+	{
+		tool: "coreutils",
+		program: "cat",
+		version: "8.32",
+		urlPrefix: "http://localhost:11111/tests/data/cat",
+		loading: "lazy"
 	}
 ];
 
@@ -56,6 +63,14 @@ async function runTests(TOOLS) {
 		const pwdExpected = "/shared";
 		expect(pwdObserved).to.equal(pwdExpected);
 		await CLI.cd("/shared/data");
+
+		// Test stdin by setting it and calling `cat` without any arguments
+		const str = "Hello World";
+		CLI.stdin = str;
+		expect(await CLI.stdin).to.equal(str);
+		const catObserved = await CLI.exec("cat");
+		const catExpected = str + "\n";
+		expect(catObserved).to.equal(catExpected);
 
 		// Expect bedtools folder to show up after bedtools is initialized
 		const bedtoolsObserved = await CLI.exec("bedtools --version");
