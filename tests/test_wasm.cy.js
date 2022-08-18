@@ -1,4 +1,4 @@
-import Aioli from "../../dist/aioli.js";
+import Aioli from "../dist/aioli.js";
 
 const TOOLS_LOCAL = [
 	{
