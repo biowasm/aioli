@@ -2,8 +2,8 @@ import { wrap } from "comlink";
 import AioliWorker from "./worker?worker&inline";
 
 // Constants
-const URL_CDN_ROOT = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
-const URL_CDN_ROOT_STG = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
+const URL_CDN_ROOT = "https://biowasm.com/cdn/v3";
+const URL_CDN_ROOT_STG = "https://stg.biowasm.com/cdn/v3";
 const CONFIG_DEFAULTS = {
 	// Biowasm CDN URLs
 	urlCDN: URL_CDN_ROOT,
