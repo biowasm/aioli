@@ -38,6 +38,11 @@ const aioli = {
 		if(aioli.tools.length === 0)
 			throw "Expecting at least 1 tool.";
 
+		// Detect duplicate modules
+		const toolsUnique = new Set(aioli.tools.map(t => `${t.tool}/${t.program || t.tool}`));
+		if(toolsUnique.size !== aioli.tools.length)
+			throw "Found duplicate tools; can only have each tool/program combination at most once.";
+
 		// The base module cannot be reinitializable since we rely on its filesystem
 		// to be stable (can remount files explicitly mounted via Aioli, but can't
 		// remount files created by a tool). Try to find tool matching this criteria.
