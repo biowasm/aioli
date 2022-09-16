@@ -101,7 +101,6 @@ const aioli = {
 				if(typeof file?.data === "string")
 					file.data = new Blob([ file.data ], { type: "text/plain" });
 				toMountFiles.push(file);
-				mountedPaths.push(file.name);
 
 			// Handle URLs
 			// URL format: { name: "filename.txt", url: "https://url" }
