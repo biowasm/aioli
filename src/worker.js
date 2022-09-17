@@ -269,6 +269,20 @@ const aioli = {
 		return true;
 	},
 
+	read({ path, length, flag="r", offset=0, position=0 }) {
+		const stream = aioli.fs.open(path, flag);
+		const buffer = new Uint8Array(length);
+		aioli.fs.read(stream, buffer, offset, length, position);
+		aioli.fs.close(stream);
+		return buffer;
+	},
+
+	write({ path, buffer, flag="w+", offset=0, position=0 }) {
+		const stream = aioli.fs.open(path, flag);
+		aioli.fs.write(stream, buffer, offset, buffer.length, position);
+		aioli.fs.close(stream);
+	},
+
 	// =========================================================================
 	// Stdin management: Use `CLI.stdin = "some text"` to set stdin before calling a tool
 	// =========================================================================
