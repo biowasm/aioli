@@ -367,8 +367,37 @@ const aioli = {
 				}
 			},
 			// Setup print functions to store stdout/stderr output
-			print: text => tool.stdout += `${text}\n`,
-			printErr: aioli.config.printInterleaved ? text => tool.stdout += `${text}\n` : text => tool.stderr += `${text}\n`
+			print: text => {
+				tool.stdout += `${text}\n`;
+				if(this.config.printStream)
+					postMessage({
+						type: "biowasm",
+						value: {
+							stdout: text,
+						},
+					});
+			},
+			printErr: aioli.config.printInterleaved ?
+				text => {
+					tool.stdout += `${text}\n`;
+					if(this.config.printStream)
+						postMessage({
+							type: "biowasm",
+							value: {
+								stdout: text,
+							},
+						});
+				} :
+				text => { 
+					tool.stderr += `${text}\n`;
+					if(this.config.printStream)
+					postMessage({
+						type: "biowasm",
+						value: {
+							stderr: text,
+						},
+					});
+				}
 		});
 
 		// -----------------------------------------------------------------
