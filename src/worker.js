@@ -387,7 +387,6 @@ const aioli = {
 							[destination]: text,
 						},
 					});
-				}
 			}
 		});
 
