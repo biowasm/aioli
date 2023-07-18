@@ -369,7 +369,7 @@ const aioli = {
 			// Setup print functions to store stdout/stderr output
 			print: text => {
 				tool.stdout += `${text}\n`;
-				if(this.config.printStream)
+				if(aioli.config.printStream)
 					postMessage({
 						type: "biowasm",
 						value: {
