@@ -377,27 +377,18 @@ const aioli = {
 						},
 					});
 			},
-			printErr: aioli.config.printInterleaved ?
-				text => {
-					tool.stdout += `${text}\n`;
-					if(this.config.printStream)
-						postMessage({
-							type: "biowasm",
-							value: {
-								stdout: text,
-							},
-						});
-				} :
-				text => { 
-					tool.stderr += `${text}\n`;
-					if(this.config.printStream)
+			printErr: text => {
+				const destination = aioli.config.printInterleaved ? "stdout" : "stderr";
+				tool[destination] += `${text}\n`;
+				if(aioli.config.printStream)
 					postMessage({
 						type: "biowasm",
 						value: {
-							stderr: text,
+							[destination]: text,
 						},
 					});
 				}
+			}
 		});
 
 		// -----------------------------------------------------------------
