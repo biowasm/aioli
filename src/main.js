@@ -19,6 +19,8 @@ const CONFIG_DEFAULTS = {
 	dirData: "/data",
 	// Interleave stdout/stderr. If set to false, `.exec()` returns an object { "stdout": <text>, "stderr": <text> }
 	printInterleaved: true,
+	// Stream stdout/stderr continuously to the main thread, instead of waiting for the WebWorker to finish running a command.
+	printStream: false,
 
 	// Callback function to run whenever we receive a message from the WebWorker with payload { type: "biowasm", value: ... }.
 	// See <https://github.com/biowasm/biowasm/tree/main/tools/bhtsne> for an example of how this can be used to send regular updates
