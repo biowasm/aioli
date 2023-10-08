@@ -217,19 +217,7 @@ const aioli = {
 		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
-			// Save state before reinitializing
-			const pwd = aioli.base.module.FS.cwd();
-
-			// Reinitialize module
-			Object.assign(tool, tool.config);
-			tool.ready = false;
-			await this.init();
-			// If reinitialized the base module, remount previously mounted files
-			if(tool.isBaseModule)
-				this.mount();
-
-			// Go back to previous folder
-			this.cd(pwd);
+			await this._reinit(tool);
 		}
 
 		return result;
@@ -455,6 +443,22 @@ const aioli = {
 				fs: fsSrc
 			}, pathDst);
 		}
+	},
+
+	// =========================================================================
+	// Reinitialize a tool
+	// =========================================================================
+	async _reinit(tool) {
+		// Save state before reinitializing
+		const pwd = aioli.base.module.FS.cwd();
+
+		// Reinitialize module
+		Object.assign(tool, tool.config);
+		tool.ready = false;
+		await this.init();
+
+		// Go back to previous folder
+		this.cd(pwd);
 	},
 
 	// =========================================================================
