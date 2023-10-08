@@ -217,7 +217,7 @@ const aioli = {
 		// Reinitialize module after done? This is useful for tools that don't properly reset their global state the
 		// second time the `main()` function is called.
 		if(tool.reinit === true) {
-			await this._reinit(tool);
+			await this._reinit(tool.tool);
 		}
 
 		return result;
@@ -448,7 +448,8 @@ const aioli = {
 	// =========================================================================
 	// Reinitialize a tool
 	// =========================================================================
-	async _reinit(tool) {
+	async _reinit(toolName) {
+		const tool = aioli.tools.find(t => t.tool == toolName);
 		// Save state before reinitializing
 		const pwd = aioli.base.module.FS.cwd();
 
