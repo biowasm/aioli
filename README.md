@@ -35,7 +35,9 @@ Run `npm run test`.
 * Build: `npm run build`
 * Publish package: `npm publish --access public`
 * Create release in the GitHub repo
-* Add to [`biowasm.json`](https://github.com/biowasm/biowasm/blob/main/biowasm.json) and deploy biowasm CDN
+* Add to [`biowasm.json`](https://github.com/biowasm/biowasm/blob/main/biowasm.json)
+* Deploy biowasm CDN with env=stg, tool=aioli and run biowasm tests to validate that stg tests still pass
+* Repeat with env=prd
 
 ## Architecture
 
