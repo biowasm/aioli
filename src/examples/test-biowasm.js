@@ -4,16 +4,14 @@ import Aioli from "../../dist/aioli.mjs";
 const CLI = await new Aioli([
 	{
 		tool: "samtools",
-		version: "1.16",
-		// URL at which .js/.wasm assets are located
-		urlPrefix: "http://localhost:12346/biowasm3/tools/samtools/build"
+		version: "1.17",
+		urlPrefix: "http://localhost:12346/biowasm/tools/samtools/build"
 	},
 	{
 		tool: "htslib",
 		program: "htsfile",
-		version: "1.16",
-		// URL at which .js/.wasm assets are located
-		urlPrefix: "http://localhost:12346/biowasm3/tools/htslib/build"
+		version: "1.17",
+		urlPrefix: "http://localhost:12346/biowasm/tools/htslib/build"
 	}
 ], { debug: true });
 
