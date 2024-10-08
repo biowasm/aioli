@@ -376,7 +376,6 @@ const aioli = {
 			},
 			// Setup print functions to store stdout/stderr output
 			print: text => {
-				tool.stdout += text + "\n";
 				if(aioli.config.printStream) {
 					postMessage({
 						type: "biowasm",
@@ -384,11 +383,12 @@ const aioli = {
 							stdout: text,
 						},
 					});
+				} else {
+					tool.stdout += text + "\n";
 				}
 			},
 			printErr: text => {
 				const destination = aioli.config.printInterleaved ? "stdout" : "stderr";
-				tool[destination] += text + "\n";
 				if(aioli.config.printStream) {
 					postMessage({
 						type: "biowasm",
@@ -396,6 +396,8 @@ const aioli = {
 							[destination]: text,
 						},
 					});
+				} else {
+					tool[destination] += text + "\n";
 				}
 			}
 		});
