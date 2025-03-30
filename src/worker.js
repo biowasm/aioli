@@ -166,7 +166,7 @@ const aioli = {
 		// Extract tool name and arguments
 		let toolName = command;
 		if(args == null) {
-			args = command.split(" ");
+			args = command.trim().split(/ +/); // trim and split by one or more whitespaces to avoid common errors due to extra spaces.
 			toolName = args.shift();
 		}
 
