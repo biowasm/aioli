@@ -238,6 +238,12 @@ const aioli = {
 		return aioli._fileop("download", path);
 	},
 
+	downloadBlob(path) { // return a blob instead of a URL, so it can be downloaded with other files by jszip
+		const file = aioli.fs.readFile(path);
+        const blob = new Blob([ file ]);
+        return blob;
+	},
+
 	pwd() {
 		return aioli.fs.cwd();
 	},
