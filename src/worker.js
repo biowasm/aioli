@@ -166,7 +166,7 @@ const aioli = {
 		// Extract tool name and arguments
 		let toolName = command;
 		if(args == null) {
-			args = command.split(" ");
+			args = command.trim().split(/ +/); // trim and split by one or more whitespaces to avoid common errors due to extra spaces.
 			toolName = args.shift();
 		}
 
@@ -236,6 +236,10 @@ const aioli = {
 
 	download(path) {
 		return aioli._fileop("download", path);
+	},
+
+	downloadBlob(path) { // return a blob instead of a URL, so it can be downloaded with other files by jszip
+		return aioli._fileop("downloadBlob", path);
 	},
 
 	pwd() {
@@ -504,6 +508,10 @@ const aioli = {
 			case "download":
 				const blob = new Blob([ this.cat(path) ]);
 				return URL.createObjectURL(blob);
+
+			case "downloadBlob":
+				const file = aioli.fs.readFile(path);
+				return new Blob([ file ]); // return a blob instead of a URL, so it can be downloaded with other files by jszip
 		}
 
 		return false;
