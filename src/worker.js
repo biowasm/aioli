@@ -239,9 +239,7 @@ const aioli = {
 	},
 
 	downloadBlob(path) { // return a blob instead of a URL, so it can be downloaded with other files by jszip
-		const file = aioli.fs.readFile(path);
-        const blob = new Blob([ file ]);
-        return blob;
+		return aioli._fileop("downloadBlob", path);
 	},
 
 	pwd() {
@@ -510,6 +508,10 @@ const aioli = {
 			case "download":
 				const blob = new Blob([ this.cat(path) ]);
 				return URL.createObjectURL(blob);
+
+			case "downloadBlob":
+				const file = aioli.fs.readFile(path);
+				return new Blob([ file ]); // return a blob instead of a URL, so it can be downloaded with other files by jszip
 		}
 
 		return false;
