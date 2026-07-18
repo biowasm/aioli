@@ -18,7 +18,7 @@
     "wasm-feature-detect": "^1.2.11"
   },
   "devDependencies": {
-    "cypress": "^10.6.0",
+    "cypress": "^15.18.1",
     "vite": "^3.0.2"
   },
   "scripts": {
