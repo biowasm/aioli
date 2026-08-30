@@ -1,101 +1,214 @@
-import { wrap } from "comlink";
+import { simd } from "wasm-feature-detect";
 import AioliWorker from "./worker?worker&inline";
 
-// Constants
+// Biowasm CDN
 const URL_CDN_ROOT = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
 const URL_CDN_ROOT_STG = "https://biowasm-v3-stg.robert.workers.dev/cdn/v3";
-const CONFIG_DEFAULTS = {
-	// Biowasm CDN URLs
-	urlCDN: URL_CDN_ROOT,
-	urlCDNStg: URL_CDN_ROOT_STG,
 
-	// Folder to use for mounting the shared filesystem
-	dirShared: "/shared",
-	// Folder to use for mounting File/Blob objects to the virtual file system
-	dirMounted: "/mnt",
-	// Folder to use for symlinks (basically, we make a symlink to each file mounted on WORKERFS
-	// so that operations like "samtools index" don't crash due to the read-only nature of WORKERS).
-	// Also mount URLs lazily in that folder.
-	dirData: "/data",
-	// Interleave stdout/stderr. If set to false, `.exec()` returns an object { "stdout": <text>, "stderr": <text> }
-	printInterleaved: true,
-
-	// Callback function to run whenever we receive a message from the WebWorker with payload { type: "biowasm", value: ... }.
-	// See <https://github.com/biowasm/biowasm/tree/main/tools/bhtsne> for an example of how this can be used to send regular updates
-	// back to the main thread before callMain() is done running.
-	callback: null,
-
-	// Debugging
-	debug: false,
-	env: "prd"
+// Tools whose CDN build ships a SIMD variant (loaded as "<program>-simd" when supported)
+const WASM_FEATURES = {
+	ssw: ["simd"],
+	minimap2: ["simd"],
 };
 
-// Class: 1 object = 1 worker; user can decide if they want tools running in separate threads or all of them in one
+const CONFIG_DEFAULTS = {
+	urlCDN: URL_CDN_ROOT,
+	urlCDNStg: URL_CDN_ROOT_STG,
+	// Name of the OPFS directory that holds this session's shared/persistent filesystem
+	sessionDir: "aioli",
+	// Interleave stdout/stderr into a single string (else exec() returns { stdout, stderr })
+	printInterleaved: true,
+	// Called with the payload of any { type: "biowasm", value } message a tool posts mid-run
+	callback: null,
+	debug: false,
+	env: "prd",
+};
+
+// =============================================================================
+// Aioli v4 — main-thread orchestrator.
+//
+// One DISPOSABLE Web Worker per exec() => cancellation is worker.terminate().
+// User files are retained here and mounted zero-copy (WORKERFS) in each worker.
+// The shared/persistent filesystem lives in OPFS (async at boundaries; sync
+// access handles inside the worker). No PROXYFS, no base module, no COOP/COEP.
+// =============================================================================
 export default class Aioli {
-	constructor(tools, config={}) {
-		if(tools == null)
-			throw "Expecting array of tools as input to Aioli constructor.";
-
-		// Parse user input
-		if(!Array.isArray(tools))
-			tools = [ tools ];
-		// Overwrite default config if specified
+	constructor(tools, config = {}) {
+		if (tools == null) throw "Expecting array of tools as input to Aioli constructor.";
+		if (!Array.isArray(tools)) tools = [tools];
 		config = Object.assign({}, CONFIG_DEFAULTS, config);
-		// For convenience, support "<tool>/<version>" or "<tool>/<program>/<version>" instead of object config
-		tools = tools.map(this._parseTool);
-		// If testing with different environment e.g. stg.biowasm.com
-		if(config.env === "stg")
-			config.urlCDN = config.urlCDNStg;
+		if (config.env === "stg") config.urlCDN = config.urlCDNStg;
 
-		// Set state
-		this.tools = tools;
 		this.config = config;
+		this.callback = config.callback || null;
+		// v3 back-compat: the "base" module is obsolete in v4 (no shared base FS). Ignore it
+		// with a warning instead of trying to load it, so v3 tool lists keep working.
+		this._rawTools = tools.map(this._parseTool).filter(t => {
+			if (t.tool === "base") {
+				console.warn("[Aioli] The 'base' module is no longer needed in Aioli v4 — ignoring it.");
+				return false;
+			}
+			return true;
+		});
 
-		// Handle callback (delete it because we can't send a function to the WebWorker)
-		if(this.config.callback != null)
-			this.callback = this.config.callback;
-		delete this.config.callback;
+		// Session state
+		this.userFiles = [];   // File/Blob objects, retained across execs (zero-copy)
+		this.cwd = "/shared/data";  // matches Aioli v3's shared working dir (dirShared + dirData)
+		this._stdin = "";
+		this._worker = null;
+		this._running = false;
+		this._reject = null;
 
 		return this.init();
 	}
 
-	// Initialize the WebWorker and the WebAssembly modules within it
 	async init() {
-		// Create the WebWorker
-		const worker = new AioliWorker();
-
-		// Listen for "biowasm" messages from the WebWorker
-		if(this.callback)
-			worker.onmessage = e => {
-				if(e.data.type === "biowasm")
-					this.callback(e.data.value);
+		// Resolve each tool's URLs + SIMD variant. No worker is spawned until exec().
+		this.tools = [];
+		for (const t of this._rawTools) {
+			let program = t.program || t.tool;
+			const features = {};
+			if ((WASM_FEATURES[program] || []).includes("simd") && (await simd())) {
+				program += "-simd";
+				features.simd = true;
 			}
-
-		const aioli = wrap(worker);
-		aioli.tools = this.tools;
-		aioli.config = this.config;
-
-		// Initialize the tools inside the WebWorker
-		await aioli.init();
-
-		return aioli;
+			const baseUrl = t.urlPrefix || `${this.config.urlCDN}/${t.tool}/${t.version}`;
+			this.tools.push({ ...t, program, features, baseUrl, mjsUrl: `${baseUrl}/${program}.mjs`, ready: true });
+		}
+		this._log(`Ready with ${this.tools.length} tool(s).`);
+		return this;
 	}
 
-	// Parse "<tool>/<version>" and "<tool>/<program>/<version>" into { "tool": <tool>, "program": <program>, "version": <version> }
 	_parseTool(tool) {
-		// If not a string, leave it as is
-		if(typeof tool !== "string")
-			return tool;
-
-		// Support "<tool>/<version>" and "<tool>/<program>/<version>"
-		const toolSplit = tool.split("/");
-		if(toolSplit.length != 2 && toolSplit.length != 3)
-			throw "Expecting '<tool>/<version>' or '<tool>/<program>/<version>'";
-
-		return {
-			tool: toolSplit[0],
-			program: toolSplit.length == 3 ? toolSplit[1] : toolSplit[0],
-			version: toolSplit[toolSplit.length - 1]
-		};
+		if (typeof tool !== "string") return tool;
+		const s = tool.split("/");
+		if (s.length != 2 && s.length != 3) throw "Expecting '<tool>/<version>' or '<tool>/<program>/<version>'";
+		return { tool: s[0], program: s.length == 3 ? s[1] : s[0], version: s[s.length - 1] };
 	}
+
+	// ---- mounting -----------------------------------------------------------
+	// Retain inputs; they are mounted per exec (local File/Blob zero-copy via WORKERFS,
+	// remote { name, url } lazily via byte-range XHR). Cheap to "re-mount" after a cancel
+	// (we just re-hand the same objects to the worker).
+	mount(files = []) {
+		if (!Array.isArray(files) && !(files instanceof FileList)) files = [files];
+		const mounted = [];
+		for (let f of files) {
+			// Remote URL input: retain { name, url } as-is; fetched lazily in the worker.
+			if (f && typeof f.url === "string") {
+				if (!f.name) throw "URL mounts require a name: { name, url }";
+				this.userFiles.push({ name: f.name, url: f.url });
+				mounted.push(`${this.cwd}/${f.name}`);
+				continue;
+			}
+			if (typeof f?.data === "string") f = { name: f.name, data: new Blob([f.data]) };
+			if (!(f instanceof File) && !(f?.data instanceof Blob))
+				throw "mount() expects File, Blob, { name, data }, or { name, url } objects.";
+			this.userFiles.push(f);
+			mounted.push(`${this.cwd}/${f.name}`);
+		}
+		this._log(`Mounted ${files.length} file(s).`);
+		return mounted;
+	}
+
+	// ---- execution ----------------------------------------------------------
+	exec(command, args = null) {
+		if (!command) return Promise.reject(new Error("Expecting a command"));
+		if (args == null) { args = command.trim().split(/\s+/); command = args.shift(); }
+		const tool = this.tools.find((t) => t.program === command || t.program === `${command}-simd` || t.tool === command);
+		if (!tool) return Promise.reject(new Error(`Program ${command} not found.`));
+
+		const worker = new AioliWorker();
+		this._worker = worker;
+		this._running = true;
+		this._log(`exec: ${command} ${args.join(" ")}`);
+
+		return new Promise((resolve, reject) => {
+			this._reject = reject;
+			worker.onmessage = (e) => {
+				const d = e.data;
+				if (d.type === "biowasm") { if (this.callback) this.callback(d.value); return; }
+				// final result
+				this._running = false;
+				worker.terminate();
+				this._worker = null;
+				this._reject = null;
+				this._stdin = "";
+				if (!d.ok) return reject(new Error(d.error));
+				if (d.cwd) this.cwd = d.cwd;
+				resolve(this.config.printInterleaved ? d.stdout : { stdout: d.stdout, stderr: d.stderr });
+			};
+			worker.onerror = (err) => {
+				this._running = false; this._worker = null; this._reject = null;
+				reject(new Error(err.message || "worker error"));
+			};
+			worker.postMessage({
+				tool: { tool: tool.tool, program: tool.program, baseUrl: tool.baseUrl, mjsUrl: tool.mjsUrl },
+				args,
+				userFiles: this.userFiles,
+				sessionDir: this.config.sessionDir,
+				cwd: this.cwd,
+				stdin: this._stdin,
+				printInterleaved: this.config.printInterleaved,
+			});
+		});
+	}
+
+	// Hard-cancel the in-flight command. A synchronous callMain() can't be
+	// interrupted cooperatively, so we terminate the worker; the OPFS session FS
+	// and retained user files survive, so nothing needs remounting.
+	cancel() {
+		if (this._worker && this._running) {
+			this._worker.terminate();
+			this._worker = null;
+			this._running = false;
+			if (this._reject) { this._reject(new Error("cancelled")); this._reject = null; }
+			this._log("cancelled (worker terminated; OPFS session intact)");
+			return true;
+		}
+		return false;
+	}
+
+	get running() { return this._running; }
+
+	// ---- stdin --------------------------------------------------------------
+	get stdin() { return this._stdin; }
+	set stdin(txt = "") { this._stdin = txt; }
+
+	// ---- filesystem helpers (async OPFS on the main thread) -----------------
+	async _dir() {
+		const root = await navigator.storage.getDirectory();
+		return root.getDirectoryHandle(this.config.sessionDir, { create: true });
+	}
+
+	async ls() {
+		const dir = await this._dir();
+		const out = [];
+		for await (const [name, h] of dir.entries()) if (h.kind === "file") out.push({ name, size: (await h.getFile()).size });
+		return out.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	async cat(name) {
+		const dir = await this._dir();
+		return (await (await dir.getFileHandle(name)).getFile()).text();
+	}
+
+	async download(name) {
+		const dir = await this._dir();
+		const blob = await (await dir.getFileHandle(name)).getFile();
+		return URL.createObjectURL(blob);
+	}
+
+	pwd() { return this.cwd; }
+	cd(path) { this.cwd = path; return true; }
+	mkdir() { return true; } // OPFS session is flat in v4; dirs are created on demand by tools
+
+	async reset() {
+		const root = await navigator.storage.getDirectory();
+		try { await root.removeEntry(this.config.sessionDir, { recursive: true }); } catch {}
+		this.userFiles = [];
+		this.cwd = "/shared/data";
+	}
+
+	_log(msg) { if (this.config.debug) console.log(`%c[Aioli]%c ${msg}`, "font-weight:bold", ""); }
 }
