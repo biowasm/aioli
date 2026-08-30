@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>Aioli test harness</title></head>
+  <body>
+    <!-- Loads Aioli in a page so the worker inherits the CSP, otherwise Cypress tests give errors. -->
+    <script type="module">
+      import Aioli from "/dist/aioli.mjs";
+      window.Aioli = Aioli;
+    </script>
+  </body>
+</html>

@@ -12,7 +12,7 @@ export default defineConfig({
       name: "Aioli",
       formats: ["es", "umd"],
       fileName: format => BUILD_FILES[format],
-      entry: resolve(__dirname, "src/main.js")
+      entry: resolve(import.meta.dirname, "src/main.js")
     }
   }
 });

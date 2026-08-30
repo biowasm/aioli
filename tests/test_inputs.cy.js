@@ -1,5 +1,3 @@
-import Aioli from "../dist/aioli.js";
-
 const TOOLS = [
 	{
 		tool: "samtools",
@@ -9,38 +7,42 @@ const TOOLS = [
 	}
 ];
 
+function withAioli(fn) {
+	cy.visit("/tests/harness.html");
+	cy.window().then(fn);
+}
 
 describe("Input validation", () => {
-	it("Empty constructor", () => {
+	it("Empty constructor", () => withAioli((win) => {
 		try {
-			new Aioli();
+			new win.Aioli();
 		} catch (error) {
 			expect(error).to.equal("Expecting array of tools as input to Aioli constructor.");
 		}
-	});
+	}));
 
-	it("Should provide at least one tool", async () => {
+	it("Should provide at least one tool", () => withAioli(async (win) => {
 		try {
-			new Aioli([]);
+			new win.Aioli([]);
 		} catch (error) {
 			expect(error).to.equal("Expecting at least 1 tool.");
 		}
-	});
+	}));
 });
 
 describe("Aioli features", () => {
-	it("Mount File objects", async () => {
-		const CLI = await new Aioli(TOOLS);
+	it("Mount File objects", () => withAioli(async (win) => {
+		const CLI = await new win.Aioli(TOOLS);
 		const file = new File(["file\ncontents\n"], "file.name");
 		const paths = await CLI.mount([ file ]);
 		expect(paths).to.deep.equal([ "/shared/data/file.name" ]);
 
 		const contents = await CLI.cat("file.name");
 		expect(contents).to.equal("file\ncontents\n");
-	});
+	}));
 
-	it("Read/write", async () => {
-		const CLI = await new Aioli(TOOLS);
+	it("Read/write", () => withAioli(async (win) => {
+		const CLI = await new win.Aioli(TOOLS);
 		const file = new File(["file\ncontents\n"], "file.name");
 		const paths = await CLI.mount([ file ]);
 
@@ -52,5 +54,5 @@ describe("Aioli features", () => {
 		await CLI.write({ path: "file2.name", buffer });
 		const contents = await CLI.cat("file2.name");
 		expect(contents).to.equal("file");
-	});
+	}));
 });

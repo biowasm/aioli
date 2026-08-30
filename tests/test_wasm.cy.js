@@ -1,5 +1,3 @@
-import Aioli from "../dist/aioli.js";
-
 const TOOLS_LOCAL = [
 	{
 		tool: "samtools",
@@ -42,8 +40,10 @@ describe("Running WebAssembly modules", () => {
 	});
 });
 
-async function runTests(TOOLS) {
-		const CLI = await new Aioli(TOOLS, { debug: true });
+function runTests(TOOLS) {
+	cy.visit("/tests/harness.html");
+	cy.window().then(async (win) => {
+		const CLI = await new win.Aioli(TOOLS, { debug: true });
 
 		// Only eager-loaded modules should be initialized now
 		await TOOLS.forEach(async (tool, i) => {
@@ -114,4 +114,5 @@ async function runTests(TOOLS) {
 		const samtoolsViewObserved = await CLI.exec("samtools view examples/toy.sam");
 		const samtoolsViewExpected = `r001\t163\tref\t7\t30\t8M4I4M1D3M\t=\t37\t39\tTTAGATAAAGAGGATACTG\t*\tXX:B:S,12561,2,20,112\nr002\t0\tref\t9\t30\t1S2I6M1P1I1P1I4M2I\t*\t0\t0\tAAAAGATAAGGGATAAA\t*\nr003\t0\tref\t9\t30\t5H6M\t*\t0\t0\tAGCTAA\t*\nr004\t0\tref\t16\t30\t6M14N1I5M\t*\t0\t0\tATAGCTCTCAGC\t*\nr003\t16\tref\t29\t30\t6H5M\t*\t0\t0\tTAGGC\t*\nr001\t83\tref\t37\t30\t9M\t=\t7\t-39\tCAGCGCCAT\t*\nx1\t0\tref2\t1\t30\t20M\t*\t0\t0\tAGGTTTTATAAAACAAATAA\t????????????????????\nx2\t0\tref2\t2\t30\t21M\t*\t0\t0\tGGTTTTATAAAACAAATAATT\t?????????????????????\nx3\t0\tref2\t6\t30\t9M4I13M\t*\t0\t0\tTTATAAAACAAATAATTAAGTCTACA\t??????????????????????????\nx4\t0\tref2\t10\t30\t25M\t*\t0\t0\tCAAATAATTAAGTCTACAGAGCAAC\t?????????????????????????\nx5\t0\tref2\t12\t30\t24M\t*\t0\t0\tAATAATTAAGTCTACAGAGCAACT\t????????????????????????\nx6\t0\tref2\t14\t30\t23M\t*\t0\t0\tTAATTAAGTCTACAGAGCAACTA\t???????????????????????\n`;
 		expect(samtoolsViewObserved).to.equal(samtoolsViewExpected);
+	});
 }
