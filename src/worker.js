@@ -8,8 +8,14 @@ const LOADING_LAZY = "lazy";
 // As a result, adding a SIMD package to biowasm requires updating Aioli, but
 // there are very few packages that will require that.
 const WASM_FEATURES = {
-	"ssw": ["simd"],
-	"minimap2": ["simd"]
+	"bowtie2-align-s": ["simd"],
+	"bwa": ["simd"],
+	"hmmalign": ["simd"],
+	"hmmbuild": ["simd"],
+	"hmmsearch": ["simd"],
+	"minimap2": ["simd"],
+	"phmmer": ["simd"],
+	"ssw": ["simd"]
 };
 
 // Main Aioli logic
