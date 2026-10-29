@@ -31,18 +31,14 @@ const TOOLS_CDN = TOOLS_LOCAL.map(d => {
 });
 
 describe("Running WebAssembly modules", () => {
-	it("Run commands (local)", async () => {
-		await runTests(TOOLS_LOCAL);
-	});
+	it("Run commands (local)", () => runTests(TOOLS_LOCAL));
 
-	it("Run commands (CDN)", async () => {
-		await runTests(TOOLS_CDN);
-	});
+	it("Run commands (CDN)", () => runTests(TOOLS_CDN));
 });
 
 function runTests(TOOLS) {
 	cy.visit("/tests/harness.html");
-	cy.window().then(async (win) => {
+	return cy.window().then(async (win) => {
 		const CLI = await new win.Aioli(TOOLS, { debug: true });
 
 		// Only eager-loaded modules should be initialized now

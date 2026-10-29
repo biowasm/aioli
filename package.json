@@ -18,8 +18,8 @@
     "wasm-feature-detect": "^1.2.11"
   },
   "devDependencies": {
-    "cypress": "^15.21.1",
-    "vite": "^8.2.2"
+    "cypress": "^16.2.1",
+    "vite": "^8.3.5"
   },
   "scripts": {
     "dev": "vite build --sourcemap true --minify false && vite",
